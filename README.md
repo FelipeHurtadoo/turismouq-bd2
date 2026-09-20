@@ -35,9 +35,3 @@ Tiempo aproximado del script 06 en XE 21c sobre disco SSD: **2 a 5 minutos**.
 - `docs/ROADMAP_Y_SUSTENTACION.md` — qué se agrega en Entrega 2 y 3 sobre este mismo
   modelo (sin reconstruirlo) y banco de preguntas del docente con respuestas.
 
-## Advertencia honesta
-
-Estos scripts **no han podido ser ejecutados** contra una instancia Oracle real durante su
-redacción. Están escritos contra la sintaxis de Oracle 21c y revisados de forma cruzada,
-pero el paso obligatorio antes de entregar es correrlos de 01 a 09 sobre una base limpia y
-ajustar cualquier detalle de entorno (rutas de datafiles, nombre del PDB, memoria PGA).
