@@ -37,9 +37,13 @@ turismouq-bd2/
 │   ├── 06_carga_masiva.sql
 │   ├── 07_vistas_y_mv.sql
 │   ├── 08_consultas_analisis.sql
-│   └── 09_validacion.sql
+│   ├── 09_validacion.sql
+│   ├── 10_pkg_turismo.sql
+│   ├── 11_triggers_entrega2.sql
+│   └── 12_pruebas_entrega2.sql
 └── docs/
     ├── DOCUMENTACION_ENTREGA1.md
+    ├── DOCUMENTACION_ENTREGA2.md
     ├── ROADMAP_Y_SUSTENTACION.md
     └── modelo_relacional.png
 ```
@@ -48,6 +52,8 @@ turismouq-bd2/
 
 - **`docs/DOCUMENTACION_ENTREGA1.md`** — modelo conceptual y lógico, decisiones de
   diseño, diccionario de datos, justificación de las 8 consultas, tablespace y checklist.
+- **`docs/DOCUMENTACION_ENTREGA2.md`** — la capa PL/SQL: función, procedimiento, cursor,
+  paquete y los dos disparadores, con la justificación de cada decisión de diseño.
 - **`docs/ROADMAP_Y_SUSTENTACION.md`** — qué se agrega en las Entregas 2 y 3 sobre
   este mismo modelo, sin reconstruirlo, y banco de preguntas del docente con respuestas.
 
@@ -123,6 +129,13 @@ Cada script depende únicamente de objetos creados por los anteriores. Todos son
 | 7 | `sql/07_vistas_y_mv.sql` | `TURISMO_UQ` | Vistas base de análisis + vista materializada de ocupación mensual | ~40 s |
 | 8 | `sql/08_consultas_analisis.sql` | `TURISMO_UQ` | Las 8 consultas obligatorias | ~1 min |
 | 9 | `sql/09_validacion.sql` | `TURISMO_UQ` | Checklist automatizado de volúmenes, integridad y objetos | ~2 min |
+| 10 | `sql/10_pkg_turismo.sql` | `TURISMO_UQ` | Paquete `PKG_TURISMO`: `fn_valor_estadia`, `sp_crear_reserva`, `sp_liquidar_mes` | ~5 s |
+| 11 | `sql/11_triggers_entrega2.sql` | `TURISMO_UQ` | Disparador de sentencia (auditoría de `TARIFA`) y de fila (anti-solapamiento) | ~5 s |
+| 12 | `sql/12_pruebas_entrega2.sql` | `TURISMO_UQ` | Checklist de la Entrega 2: función, procedimiento, cursor y ambos disparadores | ~30 s |
+
+Los scripts 10 a 12 son la **Entrega 2** y solo agregan objetos de programa:
+ningún DDL de la Entrega 1 cambia. Se pueden re-ejecutar tantas veces como
+haga falta (`CREATE OR REPLACE`); no necesitan pasar por `02_limpieza.sql`.
 
 ### 3.1 Desde la línea de comandos
 
@@ -130,7 +143,7 @@ Cada script depende únicamente de objetos creados por los anteriores. Todos son
 sqlplus sys/<pwd>@localhost:1521/XEPDB1 as sysdba @sql/01_tablespaces_usuario.sql
 sqlplus turismo_uq/TurismoUQ_2026@localhost:1521/XEPDB1 @sql/02_limpieza.sql
 sqlplus turismo_uq/TurismoUQ_2026@localhost:1521/XEPDB1 @sql/03_secuencias.sql
-# ... y así sucesivamente hasta 09
+# ... y así sucesivamente hasta 12
 ```
 
 ### 3.2 Desde SQL Developer
@@ -262,13 +275,15 @@ noches, no cuatro. Por eso nunca se usa `BETWEEN`.
 | `ORA-23319` al crear la MV | Versión desactualizada del script 07 | Usar la versión de este repositorio |
 | El script 08 devuelve 11 municipios | Versión desactualizada del script 06 | Usar la versión de este repositorio |
 | `sqlplus` no se reconoce | PATH sin actualizar | Reiniciar el equipo |
+| `ORA-04091: table is mutating` al insertar en `RESERVA_HABITACION` | Se intentó leer esa misma tabla desde un disparador de fila normal | Ya resuelto: `trg_rh_anti_solape` es un `COMPOUND TRIGGER` que consulta en `AFTER STATEMENT`, cuando la tabla ya no es mutante |
+| `ORA-06512` con código `-20002` al insertar reservas | Es el comportamiento esperado: la habitación ya está reservada en ese rango | Elegir otra habitación o fechas; ver bloque 5 de `12_pruebas_entrega2.sql` |
 
 ---
 
 ## 8. Estado del proyecto
 
 - [x] **Entrega 1** · Modelo, DDL, carga de datos, tablespace, 8 consultas y vista materializada
-- [ ] **Entrega 2** · Capa PL/SQL: función, procedimiento, cursor, paquete y disparadores
+- [x] **Entrega 2** · Capa PL/SQL: función, procedimiento, cursor, paquete y disparadores
 - [ ] **Entrega 3** · Transacciones, concurrencia, índices y seguridad
 
 El detalle de qué se agrega en cada entrega, y por qué el modelo actual lo
