@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Nueva reserva · TurismoUQ{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">Nueva reserva</h1>
+<p class="text-muted">
+   Llama a <code>pkg_turismo.sp_crear_reserva</code>. Si la habitación no está
+   disponible, el checkout no es posterior al checkin, o la capacidad no
+   alcanza para los huéspedes, el paquete lanza la excepción propia
+   (<code>-20001</code>/<code>-20002</code>/<code>-20003</code>) y se muestra
+   abajo tal cual la devuelve Oracle.
+</p>
+
+<form method="post" class="row g-3" id="form-reserva">
+   <div class="col-md-6">
+      <label class="form-label">Documento del cliente</label>
+      <div class="input-group">
+         <select name="tipo_documento_buscar" id="tipo_documento_buscar" class="form-select" style="max-width:110px">
+            <option>CC</option><option>CE</option><option>PAS</option><option>TI</option><option>NIT</option>
+         </select>
+         <input type="text" id="numero_documento_buscar" class="form-control" placeholder="Número de documento">
+         <button type="button" class="btn btn-outline-secondary" id="btn-buscar-cliente">Buscar</button>
+      </div>
+      <div class="form-text" id="cliente-encontrado"></div>
+
+      <div id="registro-cliente" class="d-none border rounded p-3 mt-2 bg-light">
+         <p class="mb-2 small text-muted">No existe un cliente con ese documento. Regístralo aquí:</p>
+         <div class="row g-2">
+            <div class="col-md-6">
+               <input type="text" id="reg_nombres" class="form-control form-control-sm" placeholder="Nombres *">
+            </div>
+            <div class="col-md-6">
+               <input type="text" id="reg_apellidos" class="form-control form-control-sm" placeholder="Apellidos *">
+            </div>
+            <div class="col-md-6">
+               <input type="email" id="reg_email" class="form-control form-control-sm" placeholder="Correo *">
+            </div>
+            <div class="col-md-6">
+               <input type="text" id="reg_telefono" class="form-control form-control-sm" placeholder="Teléfono">
+            </div>
+            <div class="col-md-4">
+               <input type="date" id="reg_fecha_nacimiento" class="form-control form-control-sm">
+               <div class="form-text">Fecha de nacimiento (opcional)</div>
+            </div>
+            <div class="col-md-4">
+               <input type="text" id="reg_pais" class="form-control form-control-sm" placeholder="País" value="Colombia">
+            </div>
+            <div class="col-md-4">
+               <input type="text" id="reg_ciudad" class="form-control form-control-sm" placeholder="Ciudad de origen">
+            </div>
+         </div>
+         <button type="button" class="btn btn-sm btn-success mt-2" id="btn-registrar-cliente">Registrar cliente</button>
+      </div>
+
+      <input type="hidden" name="id_cliente" id="id_cliente" value="{{ form.id_cliente if form else '' }}">
+   </div>
+
+   <div class="col-md-6">
+      <label class="form-label">Alojamiento</label>
+      <select name="id_alojamiento" id="id_alojamiento" class="form-select" required>
+         <option value="">-- seleccione --</option>
+         {% for id_aloj, nombre, municipio in alojamientos %}
+         <option value="{{ id_aloj }}" {% if form and form.id_alojamiento|string == id_aloj|string %}selected{% endif %}>
+            {{ nombre }} ({{ municipio }})
+         </option>
+         {% endfor %}
+      </select>
+   </div>
+
+   <div class="col-md-3">
+      <label class="form-label">Check-in</label>
+      <input type="date" name="checkin" class="form-control" required
+             value="{{ form.checkin if form else '' }}">
+   </div>
+   <div class="col-md-3">
+      <label class="form-label">Check-out</label>
+      <input type="date" name="checkout" class="form-control" required
+             value="{{ form.checkout if form else '' }}">
+   </div>
+   <div class="col-md-3">
+      <label class="form-label">Huéspedes</label>
+      <input type="number" name="huespedes" min="1" class="form-control" required
+             value="{{ form.huespedes if form else 1 }}">
+   </div>
+   <div class="col-md-3">
+      <label class="form-label">Canal</label>
+      <select name="canal" class="form-select">
+         {% for c in ['WEB', 'TELEFONO', 'AGENCIA', 'PRESENCIAL'] %}
+         <option value="{{ c }}" {% if form and form.canal == c %}selected{% endif %}>{{ c }}</option>
+         {% endfor %}
+      </select>
+   </div>
+
+   <div class="col-12">
+      <label class="form-label">Habitaciones (hasta {{ max_habitaciones }})</label>
+      <div id="habitaciones-lista" class="border rounded p-3 text-muted">
+         Selecciona primero un alojamiento.
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-success mt-2" id="btn-calcular-valor">
+         Calcular valor estimado (fn_valor_estadia)
+      </button>
+      <div id="valor-estimado" class="mt-2"></div>
+   </div>
+
+   <div class="col-12">
+      <button type="submit" class="btn btn-success">Crear reserva</button>
+      <a href="{{ url_for('reservas_lista') }}" class="btn btn-link">Cancelar</a>
+   </div>
+</form>
+
+<script>
+const maxHabitaciones = {{ max_habitaciones }};
+
+document.getElementById('id_alojamiento').addEventListener('change', async (ev) => {
+   const idAlojamiento = ev.target.value;
+   const contenedor = document.getElementById('habitaciones-lista');
+   if (!idAlojamiento) {
+      contenedor.innerHTML = '<span class="text-muted">Selecciona primero un alojamiento.</span>';
+      return;
+   }
+   contenedor.innerHTML = '<span class="text-muted">Cargando...</span>';
+   const resp = await fetch(`/api/habitaciones?id_alojamiento=${idAlojamiento}`);
+   const habitaciones = await resp.json();
+   if (habitaciones.length === 0) {
+      contenedor.innerHTML = '<span class="text-muted">Este alojamiento no tiene habitaciones activas.</span>';
+      return;
+   }
+   contenedor.innerHTML = habitaciones.map(h => `
+      <div class="form-check form-check-inline">
+         <input class="form-check-input" type="checkbox" name="habitaciones"
+                value="${h.ID_HABITACION}" id="hab-${h.ID_HABITACION}">
+         <label class="form-check-label" for="hab-${h.ID_HABITACION}">
+            #${h.NUMERO} · ${h.CATEGORIA} · ${h.CAPACIDAD} personas
+         </label>
+      </div>`).join('');
+});
+
+document.getElementById('btn-buscar-cliente').addEventListener('click', async () => {
+   const tipo = document.getElementById('tipo_documento_buscar').value;
+   const numero = document.getElementById('numero_documento_buscar').value.trim();
+   const resultado = document.getElementById('cliente-encontrado');
+   const registro = document.getElementById('registro-cliente');
+   if (!numero) { return; }
+   const resp = await fetch(`/api/clientes/buscar?tipo_documento=${encodeURIComponent(tipo)}&numero_documento=${encodeURIComponent(numero)}`);
+   const cliente = await resp.json();
+   if (!cliente) {
+      resultado.innerHTML = '<span class="text-danger">No se encontró ningún cliente con ese documento.</span>';
+      document.getElementById('id_cliente').value = '';
+      registro.classList.remove('d-none');
+      return;
+   }
+   registro.classList.add('d-none');
+   document.getElementById('id_cliente').value = cliente.id_cliente;
+   resultado.innerHTML = `<span class="text-success">Cliente: ${cliente.nombres} ${cliente.apellidos} (id ${cliente.id_cliente})</span>`;
+});
+
+document.getElementById('btn-registrar-cliente').addEventListener('click', async () => {
+   const resultado = document.getElementById('cliente-encontrado');
+   const tipo_documento = document.getElementById('tipo_documento_buscar').value;
+   const numero_documento = document.getElementById('numero_documento_buscar').value.trim();
+   const nombres = document.getElementById('reg_nombres').value.trim();
+   const apellidos = document.getElementById('reg_apellidos').value.trim();
+   const email = document.getElementById('reg_email').value.trim();
+
+   if (!numero_documento || !nombres || !apellidos || !email) {
+      alert('Documento, nombres, apellidos y correo son obligatorios para registrar al cliente.');
+      return;
+   }
+
+   const cuerpo = new URLSearchParams({
+      tipo_documento, numero_documento, nombres, apellidos, email,
+      telefono: document.getElementById('reg_telefono').value,
+      fecha_nacimiento: document.getElementById('reg_fecha_nacimiento').value,
+      pais: document.getElementById('reg_pais').value,
+      ciudad_origen: document.getElementById('reg_ciudad').value,
+   });
+
+   const resp = await fetch('/api/clientes/crear', { method: 'POST', body: cuerpo });
+   const datos = await resp.json();
+   if (datos.error) {
+      resultado.innerHTML = `<span class="text-danger">No se pudo registrar: ${datos.error}</span>`;
+      return;
+   }
+   document.getElementById('id_cliente').value = datos.id_cliente;
+   document.getElementById('registro-cliente').classList.add('d-none');
+   resultado.innerHTML = `<span class="text-success">Cliente registrado: ${datos.nombres} ${datos.apellidos} (id ${datos.id_cliente})</span>`;
+});
+
+document.getElementById('btn-calcular-valor').addEventListener('click', async () => {
+   const checkin = document.querySelector('input[name="checkin"]').value;
+   const checkout = document.querySelector('input[name="checkout"]').value;
+   const resultado = document.getElementById('valor-estimado');
+   const seleccionadas = [...document.querySelectorAll('input[name="habitaciones"]:checked')];
+
+   if (!checkin || !checkout) {
+      resultado.innerHTML = '<span class="text-danger">Completa check-in y check-out primero.</span>';
+      return;
+   }
+   if (seleccionadas.length === 0) {
+      resultado.innerHTML = '<span class="text-danger">Selecciona al menos una habitación.</span>';
+      return;
+   }
+
+   resultado.innerHTML = '<span class="text-muted">Calculando con fn_valor_estadia...</span>';
+   let total = 0;
+   const detalle = [];
+   for (const casilla of seleccionadas) {
+      const resp = await fetch(
+         `/api/valor-estadia?id_habitacion=${casilla.value}&checkin=${checkin}&checkout=${checkout}`
+      );
+      const datos = await resp.json();
+      if (datos.error) {
+         resultado.innerHTML = `<span class="text-danger">Habitación ${casilla.value}: ${datos.error}</span>`;
+         return;
+      }
+      total += datos.valor;
+      detalle.push(`habitación ${casilla.value}: $${datos.valor.toLocaleString('es-CO', {maximumFractionDigits: 0})}`);
+   }
+   resultado.innerHTML = `
+      <div class="alert alert-success py-2 mb-0">
+         <strong>Valor estimado total: $${total.toLocaleString('es-CO', {maximumFractionDigits: 0})}</strong><br>
+         <small>${detalle.join(' · ')}</small>
+      </div>`;
+});
+
+document.getElementById('form-reserva').addEventListener('submit', (ev) => {
+   if (!document.getElementById('id_cliente').value) {
+      ev.preventDefault();
+      alert('Busca y confirma un cliente antes de continuar.');
+   }
+   const seleccionadas = document.querySelectorAll('input[name="habitaciones"]:checked');
+   if (seleccionadas.length === 0) {
+      ev.preventDefault();
+      alert('Selecciona al menos una habitación.');
+   }
+   if (seleccionadas.length > maxHabitaciones) {
+      ev.preventDefault();
+      alert(`Máximo ${maxHabitaciones} habitaciones por reserva en este formulario.`);
+   }
+});
+</script>
+{% endblock %}

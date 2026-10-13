@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}TurismoUQ · Inicio{% endblock %}
+{% block content %}
+<h1 class="mb-1">TurismoUQ</h1>
+<p class="text-muted mb-4">
+   Interfaz administrativa que llama directamente a <code>PKG_TURISMO</code>
+   (función, procedimiento y las vistas de análisis) sobre el mismo esquema
+   <code>TURISMO_UQ</code> que usan los scripts de <code>sql/</code>.
+</p>
+
+<div class="row g-3">
+   <div class="col-md-4">
+      <div class="card card-dashboard">
+         <div class="card-body">
+            <h5 class="card-title">Nueva reserva</h5>
+            <p class="card-text text-muted">
+               Llama a <code>pkg_turismo.sp_crear_reserva</code>. Muestra las
+               excepciones de negocio (habitación no disponible, fechas
+               inválidas, capacidad excedida) tal como las lanza el paquete.
+            </p>
+            <a href="{{ url_for('reserva_nueva') }}" class="btn btn-success">Crear reserva</a>
+         </div>
+      </div>
+   </div>
+   <div class="col-md-4">
+      <div class="card card-dashboard">
+         <div class="card-body">
+            <h5 class="card-title">Liquidación mensual</h5>
+            <p class="card-text text-muted">
+               Mismo cálculo del cursor explícito <code>c_liq</code> de
+               <code>sp_liquidar_mes</code>: reservas, facturado, pagado y
+               saldo pendiente de un alojamiento en un mes.
+            </p>
+            <a href="{{ url_for('liquidacion') }}" class="btn btn-outline-success">Ver liquidación</a>
+         </div>
+      </div>
+   </div>
+   <div class="col-md-4">
+      <div class="card card-dashboard">
+         <div class="card-body">
+            <h5 class="card-title">Auditoría de tarifas</h5>
+            <p class="card-text text-muted">
+               Lo que registra <code>trg_tarifa_auditoria</code> (disparador
+               de sentencia) cada vez que cambia una fila de <code>TARIFA</code>.
+            </p>
+            <a href="{{ url_for('auditoria') }}" class="btn btn-outline-success">Ver auditoría</a>
+         </div>
+      </div>
+   </div>
+</div>
+
+<h2 class="h4 mt-5 mb-3">Consultas de análisis (Entrega 1)</h2>
+<div class="row g-3">
+   {% set consultas = [
+      ('ocupacion', '1. Ocupación por municipio y mes', 'PIVOT'),
+      ('ingresos', '2. Ingresos por municipio/tipo/temporada', 'ROLLUP + GROUPING'),
+      ('top3', '3. Top 3 alojamientos por municipio', 'RANK'),
+      ('variacion', '4. Variación de ingresos mes a mes', 'LAG'),
+      ('rango-fechas', '5. Ingresos en un rango de fechas', 'Bind variables'),
+      ('ocupacion-mv', '6. Ocupación mensual', 'Vista materializada'),
+      ('calificaciones', '7. Calificaciones por municipio', 'UNPIVOT'),
+      ('adr-revpar', '8. ADR, RevPAR y estacionalidad', 'Consulta libre'),
+   ] %}
+   {% for slug, titulo, tecnica in consultas %}
+   <div class="col-md-3">
+      <div class="card card-dashboard">
+         <div class="card-body">
+            <span class="badge bg-success-subtle text-success-emphasis mb-2">{{ tecnica }}</span>
+            <h6 class="card-title">{{ titulo }}</h6>
+            <a href="{{ url_for('consulta_rango_fechas') if slug == 'rango-fechas' else url_for('consulta', slug=slug) }}"
+               class="stretched-link"></a>
+         </div>
+      </div>
+   </div>
+   {% endfor %}
+</div>
+{% endblock %}

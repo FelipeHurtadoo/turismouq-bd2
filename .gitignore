@@ -1,0 +1,9 @@
+# Python / Flask
+app/.env
+app/__pycache__/
+app/**/__pycache__/
+app/.venv/
+*.pyc
+
+# Credenciales locales
+.env

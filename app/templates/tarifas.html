@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Tarifas · TurismoUQ{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">Tarifas por alojamiento</h1>
+<p class="text-muted">
+   Cambiar aquí el valor de una tarifa hace un <code>UPDATE</code> directo
+   sobre <code>TARIFA</code>, que dispara <code>trg_tarifa_auditoria</code>
+   (disparador de sentencia): el cambio queda registrado en
+   <a href="{{ url_for('auditoria') }}">Auditoría de tarifas</a> con quién,
+   cuándo, valor anterior y valor nuevo.
+</p>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+   <div class="col-auto">
+      <label class="form-label mb-0">Alojamiento</label>
+      <select name="id_alojamiento" class="form-select" onchange="this.form.submit()">
+         <option value="">-- seleccione --</option>
+         {% for id_aloj, nombre, municipio in alojamientos %}
+         <option value="{{ id_aloj }}" {% if id_alojamiento == id_aloj %}selected{% endif %}>
+            {{ nombre }} ({{ municipio }})
+         </option>
+         {% endfor %}
+      </select>
+   </div>
+   <noscript><div class="col-auto"><button type="submit" class="btn btn-success">Ver</button></div></noscript>
+</form>
+
+{% if id_alojamiento %}
+   {% if tarifas %}
+   <form method="post" id="form-tarifas">
+      <input type="hidden" name="id_alojamiento" value="{{ id_alojamiento }}">
+      <div class="tabla-scroll">
+      <table class="table table-striped table-bordered table-sm">
+         <thead>
+            <tr><th>Categoría</th><th>Temporada</th><th>Tipo</th><th>Valor / noche</th><th></th></tr>
+         </thead>
+         <tbody>
+            {% for id_tarifa, categoria, temporada, tipo, valor_noche in tarifas %}
+            <tr>
+               <td>{{ categoria }}</td>
+               <td>{{ temporada }}</td>
+               <td>{{ tipo }}</td>
+               <td style="max-width:160px">
+                  <input type="number" step="1" min="1" class="form-control form-control-sm"
+                         name="valor_noche_{{ id_tarifa }}" value="{{ valor_noche|int }}">
+               </td>
+               <td>
+                  <button type="submit" class="btn btn-sm btn-success"
+                          formaction="{{ url_for('tarifa_editar', id_tarifa=id_tarifa) }}"
+                          formmethod="post">
+                     Guardar
+                  </button>
+               </td>
+            </tr>
+            {% endfor %}
+         </tbody>
+      </table>
+      </div>
+   </form>
+   {% else %}
+   <p class="text-muted">Este alojamiento no tiene tarifas registradas.</p>
+   {% endif %}
+{% endif %}
+{% endblock %}

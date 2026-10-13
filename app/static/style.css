@@ -1,0 +1,32 @@
+body {
+   background-color: #f6f8f6;
+}
+
+.card-dashboard {
+   height: 100%;
+   border: none;
+   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+   transition: transform 0.15s ease;
+}
+
+.card-dashboard:hover {
+   transform: translateY(-3px);
+   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+table.table-reporte th {
+   position: sticky;
+   top: 0;
+   background-color: #198754;
+   color: #fff;
+}
+
+.tabla-scroll {
+   max-height: 70vh;
+   overflow: auto;
+}
+
+.resumen-liquidacion .valor {
+   font-size: 1.4rem;
+   font-weight: 600;
+}

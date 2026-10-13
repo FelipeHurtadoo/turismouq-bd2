@@ -297,3 +297,50 @@ El script 01 contiene la contraseña del esquema en texto plano. Es aceptable
 para un proyecto académico sobre una base local, pero **no es una práctica
 válida en producción**: en un entorno real esa credencial iría en una variable
 de entorno o en un gestor de secretos, nunca versionada en el repositorio.
+
+---
+
+## 10. Interfaz administrativa (opcional, fuera del alcance del documento)
+
+El documento del proyecto es explícito: *"Ustedes no construyen la
+interfaz: el entregable es la base de datos"*. La carpeta **`app/`** es, aun
+así, una interfaz web (Flask + python-oracledb) para poder demostrar en vivo
+que la capa PL/SQL funciona: crea reservas llamando a
+`pkg_turismo.sp_crear_reserva`, liquida un mes por alojamiento, muestra las
+8 consultas de análisis y el historial de `AUDITORIA_TARIFA`. No modifica
+ningún script de `sql/`. Instrucciones de instalación y arranque en
+`app/README.md`.
+
+---
+
+## 11. Pasos rápidos para el día de la sustentación
+
+1. **Abrir Docker Desktop** y esperar a que el ícono de la ballena quede
+   estable.
+2. **Encender el contenedor de Oracle**: `docker start oracle-xe`, y esperar
+   a ver `DATABASE IS READY TO USE!` en `docker logs -f oracle-xe` (o, si ya
+   lo dejaste corriendo, verificar con `docker ps`).
+3. **Abrir SQL Developer** y conectarse con la conexión `turismo_uq` (no con
+   `sys`).
+4. (Opcional, para tener evidencia fresca a la mano) Correr
+   `sql/09_validacion.sql` y `sql/12_pruebas_entrega2.sql` — si la profesora
+   pide ver algo en vivo en SQL Developer, ya está probado que corren limpio.
+5. **Abrir una terminal** y encender la interfaz web:
+   ```bash
+   cd app
+   .venv\Scripts\activate
+   python app.py
+   ```
+   (o `docker compose up` desde `app/` si prefieres la versión en Docker).
+6. **Abrir el navegador** en `http://localhost:5000`.
+7. Durante la sustentación, mostrar en la interfaz:
+   - **Nueva reserva** → crear una reserva real, usar "Calcular valor
+     estimado" (llama a `fn_valor_estadia`) antes de confirmar.
+   - **Tarifas** → editar una tarifa (dispara `trg_tarifa_auditoria`).
+   - **Auditoría de tarifas** → ver la fila que acaba de quedar registrada.
+   - **Liquidación mensual** → elegir un alojamiento y un mes.
+   - **Consultas de análisis** → cualquiera de las 8, para mostrar PIVOT,
+     ROLLUP, RANK, LAG, etc. en vivo.
+8. Si piden ver el código fuente de algo puntual (la función, el
+   procedimiento, los disparadores), tenerlo a la mano en SQL Developer:
+   `sql/10_pkg_turismo.sql` y `sql/11_triggers_entrega2.sql`.

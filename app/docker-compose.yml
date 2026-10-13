@@ -1,0 +1,18 @@
+# Arranca SOLO la interfaz web en su propio contenedor. El contenedor
+# oracle-xe sigue siendo independiente (el que ya manejas con
+# `docker start/stop oracle-xe`, ver README.md de la raíz, sección 2.1):
+# este compose no lo toca ni lo administra, para no arriesgar el volumen
+# con los datos ya cargados.
+services:
+  web:
+    build: .
+    container_name: turismouq-web
+    ports:
+      - "5000:5000"
+    environment:
+      DB_USER: ${DB_USER:-turismo_uq}
+      DB_PASSWORD: ${DB_PASSWORD:-TurismoUQ_2026}
+      # host.docker.internal: así un contenedor alcanza un puerto publicado
+      # por OTRO contenedor (oracle-xe) en Docker Desktop (Windows/Mac).
+      DB_DSN: ${DB_DSN:-host.docker.internal:1521/XEPDB1}
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-dev-no-usar-en-produccion}
