@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Transacciones · TurismoUQ{% endblock %}
+{% block content %}
+<span class="badge bg-success mb-2">Entrega 3</span>
+<h1 class="h3 mb-1">Transacciones: reserva + pago atómicos</h1>
+<p class="text-muted">
+   Cada botón llama a <code>pkg_transacciones.sp_reservar_y_pagar</code>
+   (<code>sql/14_pkg_transacciones.sql</code>) sobre una habitación libre que
+   busca <code>sp_buscar_hueco</code>. El procedimiento usa dos savepoints:
+   si falla la <strong>reserva</strong> se deshace todo
+   (<code>ROLLBACK TO sp_inicio</code>); si falla el <strong>pago</strong> se
+   deshace solo el pago (<code>ROLLBACK TO sp_antes_pago</code>) y la reserva
+   queda <code>PENDIENTE</code>.
+</p>
+
+<pre class="bg-white border rounded p-3 small mb-4">SAVEPOINT sp_inicio
+   reserva (con FOR UPDATE sobre la habitación)   ── falla → ROLLBACK TO sp_inicio      (no queda nada)
+SAVEPOINT sp_antes_pago
+   INSERT pago + reserva CONFIRMADA               ── falla → ROLLBACK TO sp_antes_pago  (queda la reserva, PENDIENTE)
+COMMIT</pre>
+
+<div class="row g-3 mb-4">
+   {% for clave, esc in escenarios.items() %}
+   <div class="col-md-3">
+      <form method="post" class="card card-dashboard h-100">
+         <div class="card-body d-flex flex-column">
+            <h6 class="card-title">{{ esc.titulo }}</h6>
+            <p class="small text-muted flex-grow-1">{{ esc.detalle }}</p>
+            <input type="hidden" name="escenario" value="{{ clave }}">
+            <button class="btn btn-sm {{ 'btn-success' if clave == 'feliz' else 'btn-outline-danger' }}">Ejecutar</button>
+         </div>
+      </form>
+   </div>
+   {% endfor %}
+</div>
+
+{% if resultado %}
+<div class="card mb-4">
+   <div class="card-header fw-semibold">Resultado · {{ escenarios[resultado.escenario].titulo }}</div>
+   <div class="card-body">
+      <p class="mb-2 small">
+         Llamada: habitación <strong>{{ resultado.llamada.habitacion }}</strong>
+         (alojamiento {{ resultado.llamada.alojamiento }}),
+         {{ resultado.llamada.checkin }} → {{ resultado.llamada.checkout }},
+         {{ resultado.llamada.huespedes }} huésped(es), valor de la estadía
+         ${{ "{:,.0f}".format(resultado.llamada.valor_estadia) }},
+         pago de ${{ "{:,.0f}".format(resultado.llamada.valor_pago) }} con
+         <code>{{ resultado.llamada.medio_pago }}</code>.
+      </p>
+      <div class="alert alert-info small py-2">Esperado: {{ escenarios[resultado.escenario].esperado }}</div>
+
+      {% if resultado.error %}
+         <div class="alert alert-danger small">
+            El procedimiento propagó el error: <code>{{ resultado.error }}</code>
+         </div>
+         <p class="mb-0">
+            Reservas en la tabla antes: <strong>{{ resultado.antes }}</strong> ·
+            después: <strong>{{ resultado.despues }}</strong>
+            {% if resultado.antes == resultado.despues %}
+               <span class="badge bg-success ms-2">no quedó nada grabado</span>
+            {% endif %}
+         </p>
+      {% else %}
+         <p>
+            <code>p_resultado</code> = <strong>{{ resultado.p_resultado }}</strong>
+            {% set f = resultado.fila %}
+            {% if f[1] == 'CONFIRMADA' and f[6] == 1 %}
+               <span class="badge bg-success ms-2">reserva y pago confirmados juntos</span>
+            {% elif f[1] == 'PENDIENTE' and f[6] == 0 %}
+               <span class="badge bg-warning text-dark ms-2">rollback parcial: se deshizo solo el pago</span>
+            {% endif %}
+         </p>
+         <table class="table table-sm table-bordered small mb-0">
+            <thead class="table-light"><tr>{% for c in resultado.columnas %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+            <tbody><tr>{% for v in resultado.fila %}<td>{{ v|celda }}</td>{% endfor %}</tr></tbody>
+         </table>
+      {% endif %}
+   </div>
+</div>
+{% endif %}
+
+<div class="card mb-4">
+   <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Anatomía de un SAVEPOINT, paso a paso</span>
+      <form method="post" class="m-0">
+         <input type="hidden" name="escenario" value="anatomia">
+         <button class="btn btn-sm btn-outline-success">Ejecutar paso a paso</button>
+      </form>
+   </div>
+   <div class="card-body">
+      <p class="small text-muted mb-2">
+         Mismo bloque 4 de <code>sql/15_pruebas_transacciones.sql</code>: después
+         de cada paso se cuenta lo que ve la propia transacción. Al final hace
+         <code>ROLLBACK</code>, así que no deja nada en la base.
+      </p>
+      {% if anatomia %}
+      <table class="table table-sm table-bordered small mb-0">
+         <thead class="table-light"><tr><th>Paso</th><th>Reserva</th><th>Líneas de habitación</th><th>Pagos</th></tr></thead>
+         <tbody>
+         {% for paso, r, l, p in anatomia %}
+            <tr class="{{ 'table-warning' if 'ROLLBACK' in paso else '' }}">
+               <td><code>{{ paso }}</code></td><td>{{ r }}</td><td>{{ l }}</td><td>{{ p }}</td>
+            </tr>
+         {% endfor %}
+         </tbody>
+      </table>
+      <p class="small mt-2 mb-0">
+         Después de <code>ROLLBACK TO demo_antes_pago</code> los pagos vuelven a 0
+         pero la reserva sigue: eso es el rollback parcial. Un savepoint no
+         termina la transacción, solo la recorta.
+      </p>
+      {% endif %}
+   </div>
+</div>
+
+<div class="card">
+   <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Reservas creadas desde esta pantalla ({{ demos|length }})</span>
+      {% if demos %}
+      <form method="post" action="{{ url_for('e3.transacciones_limpiar') }}" class="m-0">
+         <button class="btn btn-sm btn-outline-secondary">Limpiar reservas de demostración</button>
+      </form>
+      {% endif %}
+   </div>
+   <div class="card-body p-0">
+      <table class="table table-sm table-striped small mb-0">
+         <thead><tr><th>Reserva</th><th>Estado</th><th>Check-in</th><th>Check-out</th><th>Total</th><th>Pagos</th><th>Observaciones</th></tr></thead>
+         <tbody>
+         {% for r in demos %}
+            <tr>{% for v in r %}<td>{{ v|celda }}</td>{% endfor %}</tr>
+         {% else %}
+            <tr><td colspan="7" class="text-center text-muted">Ninguna todavía.</td></tr>
+         {% endfor %}
+         </tbody>
+      </table>
+   </div>
+</div>
+{% endblock %}

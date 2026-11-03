@@ -49,6 +49,28 @@
    </div>
 </div>
 
+<h2 class="h4 mt-5 mb-3">Transacciones, índices y seguridad (Entrega 3)</h2>
+<div class="row g-3">
+   {% set e3 = [
+      ('e3.transacciones', 'Transacciones', 'SAVEPOINT', 'Reserva + pago atómicos. Rollback parcial cuando el pago falla, total cuando falla la reserva.'),
+      ('e3.concurrencia', 'Concurrencia', 'FOR UPDATE', 'Dos sesiones reales por la misma habitación: doble venta sin bloqueo, espera serializada con él.'),
+      ('e3.indices', 'Índices', 'Plan de ejecución', 'Lecturas lógicas antes y después: compuesto, basado en función, FK y el caso que no ayuda.'),
+      ('e3.seguridad', 'Seguridad', 'Roles y perfil', 'Conectarse como recepción, administrador, gerente o auditor y ver qué permite Oracle.'),
+   ] %}
+   {% for ruta, titulo, tecnica, texto in e3 %}
+   <div class="col-md-3">
+      <div class="card card-dashboard">
+         <div class="card-body">
+            <span class="badge bg-success-subtle text-success-emphasis mb-2">{{ tecnica }}</span>
+            <h6 class="card-title">{{ titulo }}</h6>
+            <p class="card-text small text-muted">{{ texto }}</p>
+            <a href="{{ url_for(ruta) }}" class="stretched-link"></a>
+         </div>
+      </div>
+   </div>
+   {% endfor %}
+</div>
+
 <h2 class="h4 mt-5 mb-3">Consultas de análisis (Entrega 1)</h2>
 <div class="row g-3">
    {% set consultas = [

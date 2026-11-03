@@ -3,7 +3,8 @@ TurismoUQ · Interfaz administrativa (Flask)
 
 No reemplaza ni modifica nada de los scripts sql/: es una capa delgada que
 llama a PKG_TURISMO (sql/10_pkg_turismo.sql) para las operaciones de
-escritura, y reutiliza las vistas y consultas de la Entrega 1 para los
+escritura (y a PKG_TRANSACCIONES / PKG_MEDICION de la Entrega 3, en
+entrega3.py), y reutiliza las vistas y consultas de la Entrega 1 para los
 reportes de solo lectura. Pensada para demostrar en vivo que la lógica de
 negocio vive en la base de datos, no en esta app.
 """
@@ -16,12 +17,16 @@ from dotenv import load_dotenv
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 
 import db
+import entrega3
 import queries as q
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-no-usar-en-produccion")
+
+# Pantallas de la Entrega 3 (transacciones, concurrencia, índices, seguridad)
+app.register_blueprint(entrega3.bp)
 
 # Tope práctico de habitaciones por reserva en ESTE formulario. El modelo
 # (RESERVA_HABITACION) no impone ningún máximo; es solo una comodidad de UI.

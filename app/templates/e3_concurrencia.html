@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Concurrencia · TurismoUQ{% endblock %}
+{% block content %}
+<span class="badge bg-success mb-2">Entrega 3</span>
+<h1 class="h3 mb-1">Concurrencia: dos sesiones, la misma habitación</h1>
+<p class="text-muted">
+   Al presionar un botón la app abre <strong>dos sesiones reales de Oracle</strong>.
+   La sesión A reserva una habitación libre y se queda {{ "%.0f"|format(retencion) }} s
+   sin confirmar. Mientras tanto, la sesión B intenta reservar la misma habitación
+   en las mismas fechas, y una tercera sesión mira <code>V$SESSION</code>.
+   Es el mismo experimento de <code>sql/16_concurrencia.sql</code>. Las reservas
+   de prueba se borran al terminar.
+</p>
+
+<form method="post" class="d-flex flex-wrap gap-2 mb-4" onsubmit="this.modo.value = event.submitter.value; this.querySelectorAll('button').forEach(b=>b.disabled=true); document.getElementById('esperando').classList.remove('d-none');">
+   <input type="hidden" name="modo">
+   {% for clave, m in modos.items() %}
+      <button value="{{ clave }}"
+              class="btn {{ 'btn-outline-danger' if clave == 'sin_bloqueo' else 'btn-success' if clave == 'for_update' else 'btn-outline-success' }}">
+         {{ m.titulo }}
+      </button>
+   {% endfor %}
+   <span id="esperando" class="d-none align-self-center text-muted small">
+      <span class="spinner-border spinner-border-sm"></span> Ejecutando (unos {{ "%.0f"|format(retencion + 1) }} s)...
+   </span>
+</form>
+
+{% if resultado %}
+{% set n = resultado.reservas|length %}
+<div class="card mb-4">
+   <div class="card-header fw-semibold">{{ resultado.titulo }}</div>
+   <div class="card-body">
+      <p class="small mb-3">
+         Habitación en disputa: <strong>{{ resultado.hab }}</strong> ·
+         {{ resultado.fin }} → {{ resultado.fout }} ·
+         sesión A = SID {{ resultado.sid_a }}, sesión B = SID {{ resultado.sid_b }}
+      </p>
+
+      {% if resultado.modo == 'sin_bloqueo' and n == 2 %}
+         <div class="alert alert-danger"><strong>Anomalía demostrada:</strong> la misma habitación quedó vendida dos veces.
+         B no vio la reserva sin confirmar de A (lectura consistente), así que para B la habitación estaba libre.</div>
+      {% elif resultado.modo == 'for_update' and n == 1 %}
+         <div class="alert alert-success"><strong>Serializado:</strong> B tuvo que esperar a que A confirmara
+         ({{ "%.2f"|format(resultado.espera_b) }} s) y entonces vio la reserva de A y fue rechazada. Solo hay una reserva.</div>
+      {% elif resultado.modo == 'nowait' and n == 1 %}
+         <div class="alert alert-success"><strong>NOWAIT:</strong> B no esperó: falló en
+         {{ "%.2f"|format(resultado.espera_b) }} s porque la habitación estaba tomada. Solo hay una reserva.</div>
+      {% endif %}
+
+      <table class="table table-sm align-middle small">
+         <thead class="table-light"><tr><th style="width:80px">t (s)</th><th style="width:90px">Sesión</th><th>Evento</th></tr></thead>
+         <tbody>
+         {% for e in resultado.eventos %}
+            <tr>
+               <td class="font-monospace">{{ "%.2f"|format(e.t) }}</td>
+               <td><span class="badge bg-{{ e.tipo }} {{ 'text-dark' if e.tipo in ('warning','light') else '' }}">{{ e.quien }}</span></td>
+               <td>{{ e.texto }}</td>
+            </tr>
+         {% endfor %}
+         </tbody>
+      </table>
+
+      <h6 class="mt-3">Reservas activas de la habitación {{ resultado.hab }} en ese rango: {{ n }}</h6>
+      <table class="table table-sm table-bordered small mb-0">
+         <thead class="table-light"><tr><th>Reserva</th><th>Habitación</th><th>Check-in</th><th>Check-out</th><th>Estado</th><th>Observaciones</th></tr></thead>
+         <tbody>
+         {% for r in resultado.reservas %}
+            <tr class="{{ 'table-danger' if n > 1 else '' }}">{% for v in r %}<td>{{ v|celda }}</td>{% endfor %}</tr>
+         {% endfor %}
+         </tbody>
+      </table>
+   </div>
+</div>
+{% endif %}
+
+<div class="card">
+   <div class="card-header fw-semibold">Cómo leer los tres botones</div>
+   <div class="card-body small">
+      <table class="table table-sm table-bordered mb-0">
+         <thead class="table-light"><tr><th></th><th>¿B espera?</th><th>¿V$SESSION muestra bloqueo?</th><th>Resultado</th></tr></thead>
+         <tbody>
+            <tr><td><strong>Antes</strong> (<code>pkg_turismo.sp_crear_reserva</code>)</td><td>No</td><td>No</td><td class="text-danger">2 reservas: doble venta</td></tr>
+            <tr><td><strong>Después</strong> (<code>sp_crear_reserva_segura</code>)</td><td>Sí, hasta el COMMIT de A</td><td>Sí: <em>enq: TX - row lock contention</em> sobre HABITACION</td><td class="text-success">1 reserva; B recibe ORA-20002</td></tr>
+            <tr><td><strong>NOWAIT</strong></td><td>No, falla al instante</td><td>No (B no llega a esperar)</td><td class="text-success">1 reserva; B recibe ORA-20006</td></tr>
+         </tbody>
+      </table>
+   </div>
+</div>
+{% endblock %}

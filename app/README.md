@@ -12,6 +12,10 @@ script de `sql/`.
 - El contenedor `oracle-xe` ya corriendo con el esquema `TURISMO_UQ` cargado
   (scripts `sql/01` a `sql/11` ya ejecutados — ver el `README.md` de la raíz
   del repositorio).
+- Para el menú **Entrega 3**, además, los scripts `sql/13` a `sql/18`
+  (paquetes `PKG_TRANSACCIONES` y `PKG_MEDICION`, índices, roles y usuarios
+  de demostración). Sin ellos esas cuatro pantallas dan error; el resto de la
+  app funciona igual.
 - Python 3.10 o superior.
 
 ## Arranque rápido (sin Docker para la app)
@@ -85,6 +89,23 @@ publicado por OTRO contenedor (`oracle-xe`) que no está en la misma red.
 | Liquidación mensual | la misma consulta del cursor explícito `c_liq` de `sp_liquidar_mes` |
 | 8 consultas de análisis | las mismas consultas de `sql/08_consultas_analisis.sql`, parametrizadas |
 | Auditoría de tarifas | `SELECT` sobre `AUDITORIA_TARIFA`, la tabla que llena `trg_tarifa_auditoria` |
+| **Entrega 3 → Transacciones** | `pkg_transacciones.sp_reservar_y_pagar` con un pago válido o inválido; botón "paso a paso" con los conteos después de cada `SAVEPOINT` / `ROLLBACK TO` |
+| **Entrega 3 → Concurrencia** | Dos conexiones reales (A y B) por la misma habitación + una tercera que consulta `V$SESSION`: sin bloqueo (`pkg_turismo.sp_crear_reserva`), con `FOR UPDATE` y con `NOWAIT` (`pkg_transacciones.sp_crear_reserva_segura`) |
+| **Entrega 3 → Índices** | `pkg_medicion.plan` y `pkg_medicion.medir` sobre Q1–Q5, antes y después; cuadro para medir cualquier `SELECT` en vivo |
+| **Entrega 3 → Seguridad** | Se conecta como `recep1`, `recep2`, `admin1`, `gerente1` o `auditor1` y corre la batería de `sql/19_pruebas_seguridad.sql`; prueba el límite de 2 sesiones del perfil; matriz de privilegios desde `USER_TAB_PRIVS_MADE` |
+
+### Entrega 3: qué tener en cuenta
+
+- Las reservas que crean estas pantallas llevan `DEMO_E3 web` en
+  `OBSERVACIONES`. La de Concurrencia las borra al terminar; las de
+  Transacciones se borran con el botón **Limpiar reservas de demostración**.
+- En **Índices**, el "antes" de Q1–Q3 no borra el índice: usa la pista
+  `/*+ NO_INDEX(...) */`, que para el optimizador equivale a no tenerlo. Los
+  índices de Q4 y Q5 (los que no ayudan) se crean y se borran dentro de la
+  misma medición.
+- En **Seguridad**, cada prueba termina con `ROLLBACK`: no queda ningún cambio.
+- Estas pantallas abren conexiones propias (fuera del pool) porque necesitan
+  sesiones independientes o conectarse con otro usuario.
 
 ### Nota técnica: por qué la reserva se crea con un bloque anónimo
 

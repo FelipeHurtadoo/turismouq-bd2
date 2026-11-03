@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Índices · TurismoUQ{% endblock %}
+{% block content %}
+<span class="badge bg-success mb-2">Entrega 3</span>
+<h1 class="h3 mb-1">Índices: plan y lecturas lógicas antes y después</h1>
+<p class="text-muted">
+   Cada medición usa <code>pkg_medicion</code> (<code>sql/17_indices.sql</code>):
+   el plan sale de <code>EXPLAIN PLAN</code> + <code>DBMS_XPLAN</code> y la
+   medición ejecuta la consulta 50 veces y cuenta las <strong>lecturas
+   lógicas</strong> (bloques tocados) por ejecución. Para el "antes" de Q1–Q3
+   no se borra el índice: la pista <code>NO_INDEX</code> le prohíbe usarlo al
+   optimizador, que para el plan equivale a no tenerlo. Los índices de Q4 y Q5
+   se crean, se miden y se borran en la misma prueba.
+</p>
+
+<div class="row g-3 mb-4">
+   {% for clave, c in consultas.items() %}
+   <div class="col-md-4 col-lg">
+      <form method="post" class="card card-dashboard h-100">
+         <div class="card-body d-flex flex-column">
+            <span class="badge {{ 'bg-danger-subtle text-danger-emphasis' if clave in ('q4','q5') else 'bg-success-subtle text-success-emphasis' }} mb-2 align-self-start">{{ c.tipo }}</span>
+            <h6 class="card-title">{{ c.titulo }}</h6>
+            <p class="small text-muted flex-grow-1"><code>{{ c.indice }}</code></p>
+            <input type="hidden" name="consulta" value="{{ clave }}">
+            <button class="btn btn-sm btn-success" onclick="this.disabled=true; this.innerText='Midiendo...'; this.form.submit();">Medir</button>
+         </div>
+      </form>
+   </div>
+   {% endfor %}
+</div>
+
+{% macro tabla_medidas(medidas) %}
+<table class="table table-sm table-bordered small">
+   <thead class="table-light"><tr><th>Variante</th><th>Lecturas lógicas / ejec.</th><th>Cambio</th><th>ms / ejec.</th><th>Filas</th></tr></thead>
+   <tbody>
+   {% for m in medidas %}
+      <tr>
+         <td>{{ m.etiqueta }}</td>
+         <td class="fw-semibold">{{ "%.0f"|format(m.gets) if m.gets is not none else '?' }}</td>
+         <td>
+            {% if m.cambio is not none and loop.index > 1 %}
+               <span class="badge {{ 'bg-success' if m.cambio < 0 else 'bg-danger' if m.cambio > 0 else 'bg-secondary' }}">
+                  {{ '+' if m.cambio > 0 else '' }}{{ m.cambio }} %
+               </span>
+            {% endif %}
+         </td>
+         <td>{{ "%.2f"|format(m.ms) if m.ms is not none else '?' }}</td>
+         <td>{{ "%.0f"|format(m.filas) if m.filas is not none else '?' }}</td>
+      </tr>
+   {% endfor %}
+   </tbody>
+</table>
+{% endmacro %}
+
+{% if resultado %}
+<div class="card mb-4">
+   <div class="card-header fw-semibold">{{ resultado.cfg.titulo }} · {{ resultado.cfg.tipo }}</div>
+   <div class="card-body">
+      <p class="small">{{ resultado.cfg.explicacion }}</p>
+      {{ tabla_medidas(resultado.medidas) }}
+      <div class="row g-3">
+         {% for m in resultado.medidas %}
+         <div class="col-lg-{{ 12 // resultado.medidas|length }}">
+            <h6 class="small fw-semibold">{{ m.etiqueta }}</h6>
+            <pre class="bg-light border rounded p-2 plan">{{ m.plan }}</pre>
+         </div>
+         {% endfor %}
+      </div>
+      <details class="small"><summary>Ver la consulta medida</summary>
+         <pre class="bg-light border rounded p-2 mt-2">{{ resultado.medidas[1].sql }}</pre>
+      </details>
+   </div>
+</div>
+{% endif %}
+
+<div class="card">
+   <div class="card-header fw-semibold">Medir cualquier consulta (para la sustentación)</div>
+   <div class="card-body">
+      <form method="post">
+         <input type="hidden" name="consulta" value="libre">
+         <textarea name="sql_libre" rows="4" class="form-control font-monospace small mb-2"
+                   placeholder="SELECT ... (solo SELECT o WITH)">{{ sql_libre }}</textarea>
+         <button class="btn btn-sm btn-success">Ver plan y medir</button>
+      </form>
+      {% if libre %}
+         <div class="mt-3">
+            {{ tabla_medidas([libre]) }}
+            <pre class="bg-light border rounded p-2 plan">{{ libre.plan }}</pre>
+         </div>
+      {% endif %}
+   </div>
+</div>
+{% endblock %}

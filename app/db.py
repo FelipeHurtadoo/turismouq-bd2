@@ -33,6 +33,39 @@ def get_connection():
     return get_pool().acquire()
 
 
+def connect_standalone(user=None, password=None):
+    """Conexión NUEVA, fuera del pool: una sesión de Oracle propia.
+
+    La usan las pantallas de la Entrega 3: el experimento de concurrencia
+    necesita dos sesiones independientes que compitan entre sí, y la de
+    seguridad se conecta como cada usuario de demostración (RECEP1,
+    ADMIN1...) en lugar de como TURISMO_UQ."""
+    return oracledb.connect(
+        user=user or os.environ.get("DB_USER", "turismo_uq"),
+        password=password or os.environ.get("DB_PASSWORD", "TurismoUQ_2026"),
+        dsn=os.environ.get("DB_DSN", "localhost:1521/XEPDB1"),
+    )
+
+
+def enable_output(cursor):
+    """Activa DBMS_OUTPUT en la sesión del cursor."""
+    cursor.callproc("dbms_output.enable", [None])
+
+
+def read_output(cursor):
+    """Devuelve como lista de strings lo que el PL/SQL imprimió con
+    DBMS_OUTPUT.PUT_LINE (la misma salida que se ve en SQL Developer)."""
+    lines = []
+    line_var = cursor.var(str)
+    status_var = cursor.var(int)
+    while True:
+        cursor.callproc("dbms_output.get_line", (line_var, status_var))
+        if status_var.getvalue() != 0:
+            break
+        lines.append(line_var.getvalue() or "")
+    return lines
+
+
 def fetch_all(sql, binds=None):
     """Ejecuta un SELECT y devuelve (columnas, filas) como listas simples,
     listas para pintar en una tabla HTML."""

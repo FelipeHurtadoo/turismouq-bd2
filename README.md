@@ -417,10 +417,17 @@ que la capa PL/SQL funciona: crea reservas llamando a
 ningún script de `sql/`. Instrucciones de instalación y arranque en
 `app/README.md`.
 
-La interfaz se conecta como `TURISMO_UQ` y sigue funcionando igual después de
-la Entrega 3: los índices nuevos solo aceleran sus consultas y ninguna tabla
-cambió. La Entrega 3 se demuestra desde SQL Developer (sección 11), que es
-donde se ven los planes, los bloqueos y los privilegios.
+La interfaz tiene además un menú **Entrega 3** con cuatro pantallas que llaman
+a lo que crean los scripts 13 a 18:
+
+| Pantalla | Qué muestra |
+|---|---|
+| Transacciones | Reserva + pago con `sp_reservar_y_pagar`: pago correcto, pago rechazado (rollback parcial: la reserva queda `PENDIENTE` sin pagos) y reserva inválida (rollback total). Botón "paso a paso" con los conteos después de cada `SAVEPOINT` |
+| Concurrencia | Abre dos sesiones reales por la misma habitación y una tercera que mira `V$SESSION`. Línea de tiempo de cada evento: doble reserva sin bloqueo; con `FOR UPDATE`, B bloqueada y luego rechazada; con `NOWAIT`, B rechazada al instante |
+| Índices | Plan de ejecución y lecturas lógicas antes/después de Q1–Q5, y un cuadro para medir cualquier `SELECT` que pida la docente |
+| Seguridad | Se conecta como cada usuario de demostración y muestra qué permite y qué rechaza Oracle, lo que ve cada uno, el límite de 2 sesiones del perfil y la matriz de privilegios |
+
+Detalles en `app/README.md`.
 
 ---
 
@@ -444,7 +451,8 @@ donde se ven los planes, los bloqueos y los privilegios.
    ```
    (o `docker compose up` desde `app/` si prefieres la versión en Docker).
 6. **Abrir el navegador** en `http://localhost:5000`.
-7. Durante la sustentación, mostrar en la interfaz:
+7. Durante la sustentación, mostrar en la interfaz (Entregas 1 y 2; para la
+   Entrega 3 ver el menú **Entrega 3** y la sección 11.1):
    - **Nueva reserva** → crear una reserva real, usar "Calcular valor
      estimado" (llama a `fn_valor_estadia`) antes de confirmar.
    - **Tarifas** → editar una tarifa (dispara `trg_tarifa_auditoria`).
@@ -457,6 +465,13 @@ donde se ven los planes, los bloqueos y los privilegios.
    `sql/10_pkg_turismo.sql` y `sql/11_triggers_entrega2.sql`.
 
 ### 11.1 Entrega 3 en vivo
+
+**Desde la interfaz web** (menú **Entrega 3**), lo más visual:
+Transacciones → "Pago mayor al total" (rollback parcial) · Concurrencia →
+"ANTES" y luego "DESPUÉS" (se ve la sesión bloqueada) · Índices → Q1 y Q4 ·
+Seguridad → RECEP1 y "Abrir 3 sesiones".
+
+**Desde SQL Developer**, los mismos resultados con los scripts:
 
 - **Transacciones** → correr `sql/15_pruebas_transacciones.sql` (F5). Mostrar
   el bloque 2.1 (reserva `PENDIENTE`, 0 pagos: rollback parcial) y la tabla
