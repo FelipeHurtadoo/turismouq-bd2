@@ -30,6 +30,14 @@ y excluir las reservas en estado `CANCELADA`.
 
 # FASE 12 — Entrega 3 sobre este mismo modelo
 
+> **Estado: implementada** (scripts 13 a 19). Esta tabla fue el plan escrito
+> en la Entrega 1; lo que finalmente se hizo, con sus mediciones, está en
+> `docs/DOCUMENTACION_ENTREGA3.md`. Diferencias respecto al plan: el índice
+> basado en función terminó siendo `UPPER(email)` sobre `CLIENTE`, porque
+> `TRUNC(fecha_checkin,'MM')` resultó ser un caso límite que el optimizador
+> no usa (clustering factor); y las vistas de recepción son
+> `V_RECEPCION_RESERVAS` y `V_RECEPCION_HABITACIONES`.
+
 | Elemento | Estructura | Soporte actual | Qué agregar |
 |---|---|---|---|
 | Procedimiento transaccional reserva+pago | `RESERVA`, `RESERVA_HABITACION`, `PAGO` | `PAGO` es independiente de `RESERVA` y admite varios pagos: permite confirmar el alojamiento y fallar el cobro | `sp_reservar_y_pagar` con `SAVEPOINT antes_pago`, `ROLLBACK TO antes_pago` y `COMMIT` final |

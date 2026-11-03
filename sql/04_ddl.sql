@@ -240,7 +240,7 @@ CREATE TABLE usuario_sistema (
    CONSTRAINT ck_usuario_rol       CHECK (rol IN
       ('RECEPCION','ADMIN_ALOJAMIENTO','GERENTE','AUDITOR')),
    CONSTRAINT ck_usuario_activo    CHECK (activo IN ('S','N')),
-   -- Regla de negocio: recepción y administrador pertenecen a UN alojamiento;
+   -- Regla de negocio: recepción y administrador pertenecen a UN alojamiento,
    -- gerente y auditor son transversales al departamento.
    CONSTRAINT ck_usuario_ambito    CHECK (
         (rol IN ('RECEPCION','ADMIN_ALOJAMIENTO') AND id_alojamiento IS NOT NULL)

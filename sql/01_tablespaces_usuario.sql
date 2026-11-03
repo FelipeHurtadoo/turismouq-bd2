@@ -27,6 +27,20 @@ DECLARE
       DBMS_OUTPUT.PUT_LINE('SKIP : ' || p_sql || ' -> ' || SQLERRM);
    END;
 BEGIN
+   -- Objetos de seguridad de la Entrega 3 (18_seguridad.sql). Roles, perfil y
+   -- usuarios NO son del esquema: sobreviven al DROP USER turismo_uq, y el
+   -- TURISMO_UQ nuevo ya no tendría permiso para borrarlos. Se borran aquí.
+   ejec('DROP USER recep1 CASCADE');
+   ejec('DROP USER recep2 CASCADE');
+   ejec('DROP USER admin1 CASCADE');
+   ejec('DROP USER gerente1 CASCADE');
+   ejec('DROP USER auditor1 CASCADE');
+   ejec('DROP PROFILE perfil_turismo_operativo CASCADE');
+   ejec('DROP ROLE rol_recepcion');
+   ejec('DROP ROLE rol_admin_alojamiento');
+   ejec('DROP ROLE rol_gerente');
+   ejec('DROP ROLE rol_auditor');
+
    ejec('DROP USER turismo_uq CASCADE');
    ejec('DROP TABLESPACE ts_turismo_hist INCLUDING CONTENTS AND DATAFILES');
    ejec('DROP TABLESPACE ts_turismo_idx  INCLUDING CONTENTS AND DATAFILES');
@@ -84,20 +98,30 @@ ALTER USER turismo_uq QUOTA UNLIMITED ON ts_turismo_dat;
 ALTER USER turismo_uq QUOTA UNLIMITED ON ts_turismo_hist;
 ALTER USER turismo_uq QUOTA UNLIMITED ON ts_turismo_idx;
 
+-- Ningún comentario va en la MISMA línea después del ';': sqlplus lo toma
+-- como parte de la sentencia y falla con ORA-00933 (SQL Developer no).
 GRANT CREATE SESSION            TO turismo_uq;
 GRANT CREATE TABLE              TO turismo_uq;
 GRANT CREATE VIEW               TO turismo_uq;
 GRANT CREATE SEQUENCE           TO turismo_uq;
-GRANT CREATE PROCEDURE          TO turismo_uq;   -- Entrega 2
-GRANT CREATE TRIGGER            TO turismo_uq;   -- Entrega 2
+-- Entrega 2
+GRANT CREATE PROCEDURE          TO turismo_uq;
+-- Entrega 2
+GRANT CREATE TRIGGER            TO turismo_uq;
 GRANT CREATE TYPE               TO turismo_uq;
 GRANT CREATE SYNONYM            TO turismo_uq;
-GRANT CREATE MATERIALIZED VIEW  TO turismo_uq;   -- Consulta 6
-GRANT CREATE JOB                TO turismo_uq;   -- refresco programado de la MV
-GRANT CREATE ROLE               TO turismo_uq;   -- Entrega 3 (roles)
-GRANT CREATE USER               TO turismo_uq;   -- Entrega 3 (usuarios de rol)
-GRANT CREATE PROFILE            TO turismo_uq;   -- Entrega 3 (perfil de sesión)
-GRANT ALTER USER                TO turismo_uq;   -- Entrega 3 (asignar perfil)
+-- Consulta 6
+GRANT CREATE MATERIALIZED VIEW  TO turismo_uq;
+-- refresco programado de la MV
+GRANT CREATE JOB                TO turismo_uq;
+-- Entrega 3 (roles)
+GRANT CREATE ROLE               TO turismo_uq;
+-- Entrega 3 (usuarios de rol)
+GRANT CREATE USER               TO turismo_uq;
+-- Entrega 3 (perfil de sesión)
+GRANT CREATE PROFILE            TO turismo_uq;
+-- Entrega 3 (asignar perfil)
+GRANT ALTER USER                TO turismo_uq;
 
 -- Para ver planes de ejecución y estadísticas en la Entrega 3
 GRANT SELECT_CATALOG_ROLE       TO turismo_uq;

@@ -1,4 +1,4 @@
-# TurismoUQ · Bases de Datos II · Entrega 1
+# TurismoUQ · Bases de Datos II · Entregas 1, 2 y 3
 
 Base de datos de una plataforma de reservas turísticas para los 12 municipios del
 departamento del Quindío: alojamientos, habitaciones, temporadas, tarifas,
@@ -11,7 +11,7 @@ reservas, pagos, servicios complementarios y reseñas.
 | **Docente** | Ana María Vanegas Rojas |
 | **Motor** | Oracle Database XE 21c |
 | **Esquema** | `TURISMO_UQ` en el PDB `XEPDB1` |
-| **Entrega actual** | Entrega 1 · Modelo y consultas de análisis |
+| **Entrega actual** | Entrega 3 · Transacciones, índices y seguridad (las tres entregas completas) |
 
 ### Equipo
 
@@ -40,12 +40,24 @@ turismouq-bd2/
 │   ├── 09_validacion.sql
 │   ├── 10_pkg_turismo.sql
 │   ├── 11_triggers_entrega2.sql
-│   └── 12_pruebas_entrega2.sql
-└── docs/
-    ├── DOCUMENTACION_ENTREGA1.md
-    ├── DOCUMENTACION_ENTREGA2.md
-    ├── ROADMAP_Y_SUSTENTACION.md
-    └── modelo_relacional.png
+│   ├── 12_pruebas_entrega2.sql
+│   ├── 13_privilegios_entrega3.sql      ← Entrega 3 (como SYS)
+│   ├── 14_pkg_transacciones.sql
+│   ├── 15_pruebas_transacciones.sql
+│   ├── 16_concurrencia.sql
+│   ├── 16a_concurrencia_sesion_A.sql    ← versión manual, ventana A
+│   ├── 16b_concurrencia_sesion_B.sql    ← versión manual, ventana B
+│   ├── 16c_concurrencia_monitor.sql     ← versión manual, tercera ventana
+│   ├── 17_indices.sql
+│   ├── 18_seguridad.sql
+│   └── 19_pruebas_seguridad.sql
+├── docs/
+│   ├── DOCUMENTACION_ENTREGA1.md
+│   ├── DOCUMENTACION_ENTREGA2.md
+│   ├── DOCUMENTACION_ENTREGA3.md
+│   ├── ROADMAP_Y_SUSTENTACION.md
+│   └── modelo_relacional.html
+└── app/                              ← interfaz web opcional (sección 10)
 ```
 
 ### Documentación
@@ -54,6 +66,11 @@ turismouq-bd2/
   diseño, diccionario de datos, justificación de las 8 consultas, tablespace y checklist.
 - **`docs/DOCUMENTACION_ENTREGA2.md`** — la capa PL/SQL: función, procedimiento, cursor,
   paquete y los dos disparadores, con la justificación de cada decisión de diseño.
+- **`docs/DOCUMENTACION_ENTREGA3.md`** — transacciones con `SAVEPOINT`, el
+  experimento de concurrencia (antes/después de `FOR UPDATE`), los índices con
+  sus planes y mediciones (incluido el caso donde el índice no ayuda), y la
+  seguridad: matriz de roles, vistas de recepción y perfil. Incluye checklist
+  punto por punto contra el PDF y preguntas probables de la sustentación.
 - **`docs/ROADMAP_Y_SUSTENTACION.md`** — qué se agrega en las Entregas 2 y 3 sobre
   este mismo modelo, sin reconstruirlo, y banco de preguntas del docente con respuestas.
 
@@ -132,10 +149,27 @@ Cada script depende únicamente de objetos creados por los anteriores. Todos son
 | 10 | `sql/10_pkg_turismo.sql` | `TURISMO_UQ` | Paquete `PKG_TURISMO`: `fn_valor_estadia`, `sp_crear_reserva`, `sp_liquidar_mes` | ~5 s |
 | 11 | `sql/11_triggers_entrega2.sql` | `TURISMO_UQ` | Disparador de sentencia (auditoría de `TARIFA`) y de fila (anti-solapamiento) | ~5 s |
 | 12 | `sql/12_pruebas_entrega2.sql` | `TURISMO_UQ` | Checklist de la Entrega 2: función, procedimiento, cursor y ambos disparadores | ~30 s |
+| 13 | `sql/13_privilegios_entrega3.sql` | **`SYS AS SYSDBA`** en `XEPDB1` | Privilegios que faltaban para la Entrega 3 (`CREATE SESSION WITH ADMIN OPTION`, `DROP USER`, `ALTER/DROP PROFILE`, `V$SESSION`, `V$LOCK`, `V$MYSTAT`...) y `RESOURCE_LIMIT = TRUE` | ~2 s |
+| 14 | `sql/14_pkg_transacciones.sql` | `TURISMO_UQ` | Paquete `PKG_TRANSACCIONES`: `sp_reservar_y_pagar` (reserva + pago atómicos con `SAVEPOINT`) y `sp_crear_reserva_segura` (`SELECT ... FOR UPDATE`) | ~2 s |
+| 15 | `sql/15_pruebas_transacciones.sql` | `TURISMO_UQ` | Demostración: caso feliz, **rollback parcial**, rollback total y el savepoint paso a paso | ~5 s |
+| 16 | `sql/16_concurrencia.sql` | `TURISMO_UQ` | Experimento de dos sesiones por la misma habitación: sin bloqueo (doble reserva), con `FOR UPDATE` (bloqueo y espera), `NOWAIT` y `WAIT 3` | ~45 s |
+| 17 | `sql/17_indices.sql` | `TURISMO_UQ` | 3 consultas lentas con plan y medición antes/después (índice compuesto, basado en función y FK), y el caso donde el índice **no** ayuda | ~1 min |
+| 18 | `sql/18_seguridad.sql` | `TURISMO_UQ` | Vistas de recepción y administración, 4 roles, perfil con límites de sesión y 5 usuarios de demostración | ~5 s |
+| 19 | `sql/19_pruebas_seguridad.sql` | se conecta como cada usuario (`CONNECT`) | Comprueba lo que cada rol puede y no puede hacer; al final vuelve a `TURISMO_UQ` | ~10 s |
 
 Los scripts 10 a 12 son la **Entrega 2** y solo agregan objetos de programa:
 ningún DDL de la Entrega 1 cambia. Se pueden re-ejecutar tantas veces como
 haga falta (`CREATE OR REPLACE`); no necesitan pasar por `02_limpieza.sql`.
+
+Los scripts 13 a 19 son la **Entrega 3** y tampoco cambian ninguna tabla.
+Todos son re-ejecutables: los de pruebas marcan sus reservas de demostración
+con `DEMO_E3` y las borran al empezar, el de índices borra y vuelve a crear
+sus índices para medir siempre el "antes" real, y el de seguridad borra y
+recrea roles, perfil y usuarios.
+
+Los archivos `16a`, `16b` y `16c` **no** forman parte de la corrida de arriba
+abajo: son la versión manual del experimento de concurrencia, para hacerlo en
+vivo con dos ventanas (ver sección 11).
 
 ### 3.1 Desde la línea de comandos
 
@@ -144,7 +178,13 @@ sqlplus sys/<pwd>@localhost:1521/XEPDB1 as sysdba @sql/01_tablespaces_usuario.sq
 sqlplus turismo_uq/TurismoUQ_2026@localhost:1521/XEPDB1 @sql/02_limpieza.sql
 sqlplus turismo_uq/TurismoUQ_2026@localhost:1521/XEPDB1 @sql/03_secuencias.sql
 # ... y así sucesivamente hasta 12
+sqlplus sys/<pwd>@localhost:1521/XEPDB1 as sysdba @sql/13_privilegios_entrega3.sql
+sqlplus turismo_uq/TurismoUQ_2026@localhost:1521/XEPDB1 @sql/14_pkg_transacciones.sql
+# ... y así sucesivamente hasta 19
 ```
+
+Si ya tenías montada la base con las Entregas 1 y 2, **no hace falta volver a
+empezar**: basta con ejecutar del 13 al 19 en orden.
 
 ### 3.2 Desde SQL Developer
 
@@ -207,6 +247,19 @@ El script 09 es el checklist. Todo debe salir así:
 | 10. Restricciones | 17 PK, 17 FK, 16 UNIQUE, 141 CHECK/NOT NULL |
 | 11. Vista materializada | `FRESH` y `VALID` |
 
+Para la Entrega 3, cada script de prueba imprime `OK` o `FALLA` por línea.
+Lo esperado:
+
+| Script | Resultado esperado |
+|---|---|
+| 15 · Transacciones | 5 `OK`. En el bloque 2 la reserva queda `PENDIENTE` con 1 línea y **0 pagos** (rollback parcial) |
+| 16 · Concurrencia | Escenario 1: `ANOMALÍA DEMOSTRADA` (2 reservas). Escenario 2: `V$SESSION` muestra a B bloqueada, B termina con `ORA-20002` y queda `OK` con 1 reserva. Escenario 3: `-20006` en ~0 s (`NOWAIT`) y en ~3 s (`WAIT 3`) |
+| 17 · Índices | Tabla resumen: Q1, Q2 y Q3 bajan sus lecturas lógicas entre 75 % y 92 %; Q4 forzado sube lecturas y tiempo |
+| 18 · Seguridad | *privilegios de recepción sobre tablas* = **0** |
+| 19 · Pruebas de seguridad | 27 `OK`, ningún `FALLA` |
+
+El detalle de cada número está en `docs/DOCUMENTACION_ENTREGA3.md`.
+
 Verificación rápida de que la base tiene datos:
 
 ```sql
@@ -221,8 +274,8 @@ SELECT (SELECT COUNT(*) FROM reserva)    AS reservas,
 
 ## 5. Volver a empezar desde cero
 
-Ejecuta del **02 al 09**. El script 01 no hace falta: los tablespaces y el
-usuario ya existen.
+Ejecuta del **02 al 19** (el 13 como `SYS`). El script 01 no hace falta: los
+tablespaces y el usuario ya existen.
 
 El 02 borra todo el esquema, de modo que la secuencia completa es reproducible
 tantas veces como se quiera. Esa es la prueba de que los scripts corren de
@@ -260,6 +313,25 @@ JOIN dim_tiempo d ON d.fecha >= r.fecha_checkin
 El rango es semiabierto: la noche de salida no se cobra. Del 10 al 13 son tres
 noches, no cuatro. Por eso nunca se usa `BETWEEN`.
 
+**C. Entrega 3: lo que se bloquea es la habitación**
+
+Dos sesiones que validan disponibilidad al mismo tiempo no se ven entre sí
+(lectura consistente) y venden la misma habitación dos veces; ni el
+procedimiento ni el disparador de la Entrega 2 lo evitan. El recurso escaso es
+la fila de `HABITACION`: `sp_crear_reserva_segura` la bloquea con
+`SELECT ... FOR UPDATE` antes de validar, y la segunda sesión espera y luego
+es rechazada. `sp_reservar_y_pagar` usa dos savepoints: si falla la reserva
+se deshace todo; si falla el pago se deshace **solo** el pago y la reserva
+queda `PENDIENTE`.
+
+**D. Entrega 3: el alojamiento del usuario ya estaba en el modelo**
+
+Las vistas de recepción filtran con
+`SYS_CONTEXT('USERENV','SESSION_USER')` contra `USUARIO_SISTEMA.username`,
+tabla que existe desde la Entrega 1 con el alojamiento de cada usuario. El
+mismo `GRANT` sobre la misma vista le muestra a cada recepcionista solo su
+hotel.
+
 ---
 
 ## 7. Problemas frecuentes
@@ -277,6 +349,15 @@ noches, no cuatro. Por eso nunca se usa `BETWEEN`.
 | `sqlplus` no se reconoce | PATH sin actualizar | Reiniciar el equipo |
 | `ORA-04091: table is mutating` al insertar en `RESERVA_HABITACION` | Se intentó leer esa misma tabla desde un disparador de fila normal | Ya resuelto: `trg_rh_anti_solape` es un `COMPOUND TRIGGER` que consulta en `AFTER STATEMENT`, cuando la tabla ya no es mutante |
 | `ORA-06512` con código `-20002` al insertar reservas | Es el comportamiento esperado: la habitación ya está reservada en ese rango | Elegir otra habitación o fechas; ver bloque 5 de `12_pruebas_entrega2.sql` |
+| `ORA-00933` en los `GRANT` del script 01 al correrlo con `sqlplus` | Versión anterior del script tenía comentarios en la misma línea después del `;` (SQL Developer los tolera, sqlplus no) | Usar la versión de este repositorio |
+| `ORA-01031` o `ORA-01924` en el script 18 | No se ejecutó el 13 (falta `CREATE SESSION WITH ADMIN OPTION`, `DROP USER`...) | Ejecutar `13_privilegios_entrega3.sql` como `SYS` y repetir el 18 |
+| `ORA-00942` sobre `V$SESSION` / `V$MYSTAT` al compilar en los scripts 16 o 17 | Igual: faltan los `GRANT` directos del script 13 | Ejecutar el 13 como `SYS` |
+| En el script 16 el escenario 1 dice *"No se reprodujo la anomalía"* | El job de la sesión B tardó más de lo normal en arrancar | Volver a ejecutar el 16; si persiste, revisar `SELECT value FROM v$parameter WHERE name = 'job_queue_processes'` (debe ser > 0) |
+| En la versión manual (16a/16b) la ventana B **no** se bloquea | Las dos hojas de SQL Developer comparten la misma sesión | Abrir la ventana B como hoja **no compartida**: Ctrl+Shift+N |
+| `ORA-20009` en los scripts 15/16 | `sp_buscar_hueco` no encontró habitación libre entre mañana y el 31/12/2026 (fin del calendario cargado) | Solo pasa si se corre después de diciembre de 2026: ampliar `DIM_TIEMPO`, `TEMPORADA` y `TARIFA` |
+| `ORA-02391: exceeded simultaneous SESSIONS_PER_USER limit` | Es el perfil funcionando: los usuarios de demostración tienen máximo 2 sesiones | Cerrar una de las sesiones abiertas de ese usuario |
+| `ORA-02395: exceeded call limit on IO usage` | El perfil cortó una llamada de más de 200.000 lecturas lógicas | Es intencional; ver FASE 5.4 de `docs/DOCUMENTACION_ENTREGA3.md` |
+| `ORA-00942` / `ORA-01031` en el script 19 | Son el resultado **esperado** de cada prueba (cada línea dice `OK` delante) | Ninguna; solo es un problema si la línea dice `FALLA` |
 
 ---
 
@@ -284,7 +365,17 @@ noches, no cuatro. Por eso nunca se usa `BETWEEN`.
 
 - [x] **Entrega 1** · Modelo, DDL, carga de datos, tablespace, 8 consultas y vista materializada
 - [x] **Entrega 2** · Capa PL/SQL: función, procedimiento, cursor, paquete y disparadores
-- [ ] **Entrega 3** · Transacciones, concurrencia, índices y seguridad
+- [x] **Entrega 3** · Transacciones, concurrencia, índices y seguridad
+
+| Requisito de la Entrega 3 | Dónde |
+|---|---|
+| Procedimiento reserva + pago atómico con `SAVEPOINT` y rollback parcial | `pkg_transacciones.sp_reservar_y_pagar` (14) · demostración en 15 |
+| Experimento de concurrencia con dos sesiones, bloqueo y `SELECT ... FOR UPDATE` antes/después | 16 (automático) · 16a/16b/16c (en vivo) |
+| 3 consultas lentas, plan y medición antes/después, índice compuesto y basado en función | 17 · Q1, Q2, Q3 |
+| Un caso donde el índice no ayuda, explicado | 17 · Q4 (y Q5 como caso límite) |
+| 4 roles con privilegios diferenciados | 18 · `rol_recepcion`, `rol_admin_alojamiento`, `rol_gerente`, `rol_auditor` |
+| Recepción accede solo por vistas | 18 · `v_recepcion_reservas`, `v_recepcion_habitaciones` · verificado en 19 |
+| Perfil con límites de sesión | 18 · `perfil_turismo_operativo` |
 
 El detalle de qué se agrega en cada entrega, y por qué el modelo actual lo
 soporta sin reconstrucción, está en `docs/ROADMAP_Y_SUSTENTACION.md`.
@@ -298,6 +389,21 @@ para un proyecto académico sobre una base local, pero **no es una práctica
 válida en producción**: en un entorno real esa credencial iría en una variable
 de entorno o en un gestor de secretos, nunca versionada en el repositorio.
 
+Lo mismo aplica a los cinco usuarios de demostración que crea el script 18
+(todos con la contraseña `Demo_UQ2026`):
+
+| Usuario | Rol | Alojamiento |
+|---|---|---|
+| `recep1` | `rol_recepcion` | 1 |
+| `recep2` | `rol_recepcion` | 2 |
+| `admin1` | `rol_admin_alojamiento` | 1 |
+| `gerente1` | `rol_gerente` | todos |
+| `auditor1` | `rol_auditor` | todos |
+
+Para conectarse como ellos en SQL Developer, crear una conexión igual a la de
+`turismo_uq` cambiando usuario y contraseña. Los objetos se consultan con el
+prefijo del esquema: `SELECT * FROM turismo_uq.v_recepcion_reservas;`.
+
 ---
 
 ## 10. Interfaz administrativa (opcional, fuera del alcance del documento)
@@ -310,6 +416,11 @@ que la capa PL/SQL funciona: crea reservas llamando a
 8 consultas de análisis y el historial de `AUDITORIA_TARIFA`. No modifica
 ningún script de `sql/`. Instrucciones de instalación y arranque en
 `app/README.md`.
+
+La interfaz se conecta como `TURISMO_UQ` y sigue funcionando igual después de
+la Entrega 3: los índices nuevos solo aceleran sus consultas y ninguna tabla
+cambió. La Entrega 3 se demuestra desde SQL Developer (sección 11), que es
+donde se ven los planes, los bloqueos y los privilegios.
 
 ---
 
@@ -344,3 +455,36 @@ ningún script de `sql/`. Instrucciones de instalación y arranque en
 8. Si piden ver el código fuente de algo puntual (la función, el
    procedimiento, los disparadores), tenerlo a la mano en SQL Developer:
    `sql/10_pkg_turismo.sql` y `sql/11_triggers_entrega2.sql`.
+
+### 11.1 Entrega 3 en vivo
+
+- **Transacciones** → correr `sql/15_pruebas_transacciones.sql` (F5). Mostrar
+  el bloque 2.1 (reserva `PENDIENTE`, 0 pagos: rollback parcial) y la tabla
+  paso a paso del bloque 4.
+- **Concurrencia, versión automática** → `sql/16_concurrencia.sql` (~45 s).
+  Muestra la doble reserva sin bloqueo y, con `FOR UPDATE`, la línea de
+  `V$SESSION` con la sesión B bloqueada.
+- **Concurrencia, versión manual** (si piden verlo con dos ventanas):
+  1. En SQL Developer abrir `16a_concurrencia_sesion_A.sql` en una hoja y
+     `16b_concurrencia_sesion_B.sql` en una hoja **no compartida**
+     (Ctrl+Shift+N). Opcional: `16c_concurrencia_monitor.sql` en una tercera
+     hoja no compartida.
+  2. A: PASO A0, luego A1 → B: PASO B1 → A: PASO A2 (salen **2** reservas).
+  3. A: PASO A3, luego A4 → B: PASO B2 (**se queda esperando**) → monitor:
+     ver a B bloqueada → A: PASO A5 (B se destraba con `ORA-20002`, queda
+     **1** reserva) → A: PASO A6.
+  Cada paso se ejecuta seleccionando el bloque y F5.
+- **Índices** → `sql/17_indices.sql` y mostrar la tabla resumen. Para medir
+  en vivo cualquier consulta que pida la docente:
+  ```sql
+  SET SERVEROUTPUT ON
+  EXEC pkg_medicion.plan('SELECT ... la consulta ...');
+  EXEC pkg_medicion.medir('etiqueta', 'SELECT ... la consulta ...');
+  ```
+  (las comillas simples dentro de la consulta se escriben dobles: `''`).
+  En SQL Developer también sirve F10 (plan) y F6 (autotrace).
+- **Seguridad** → `sql/19_pruebas_seguridad.sql` (F5): se conecta como cada
+  usuario y muestra 27 `OK`. Para el perfil: abrir tres terminales con
+  `sqlplus recep1/Demo_UQ2026@localhost:1521/XEPDB1`; la tercera es
+  rechazada con `ORA-02391`. Si se usó el contenedor de Docker sin `sqlplus`
+  en Windows: `docker exec -it oracle-xe sqlplus recep1/Demo_UQ2026@localhost:1521/XEPDB1`.
