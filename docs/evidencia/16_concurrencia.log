@@ -1,0 +1,115 @@
+
+############ 0. Preparación ############
+
+0 rows deleted.
+
+
+Commit complete.
+
+
+PL/SQL procedure successfully completed.
+
+
+Package created.
+
+
+Package body created.
+
+
+############ 1. ANTES: sin bloqueo explícito (pkg_turismo.sp_crear_reserva) ############
+## A reserva y NO confirma. B, en otra sesión, valida disponibilidad: por la
+## lectura consistente de Oracle NO ve la fila sin confirmar de A, así que la
+## habitación le parece libre. El disparador anti-solape de B tampoco la ve.
+Habitación en disputa: 8 · 2026-11-14 a 2026-11-16 · reservas activas antes: 0
+[A 18:22:24.52] reserva 25521 insertada, SIN COMMIT. A espera 8 s...
+[A 18:22:30.87] V$LOCK: esta sesión tiene su bloqueo TX en modo 6 (exclusivo) · BLOCK = 0 -> nadie está esperando
+[A 18:22:30.87] V$SESSION: ninguna sesión está esperando a esta.
+[A 18:22:32.88] COMMIT
+--- salida de la sesión B (job EXP_CONC_SIN_BLOQUEO, SUCCEEDED) ---
+[B 18:22:27.62] SID 46 intenta reservar la habitación 8
+[B 18:22:27.79] COMMIT: reserva 25522 creada
+[B] tiempo desde el intento hasta la respuesta: 0.17 s
+Reservas activas de la habitación 8 en ese rango: 2
+ANOMALÍA DEMOSTRADA: la misma habitación quedó vendida dos veces
+
+PL/SQL procedure successfully completed.
+
+## Las dos reservas en conflicto (la prueba de la condición de carrera):
+
+ID_RESERVA ID_HABITACION FECHA_CHECKIN	    FECHA_CHECKOUT     ESTADO
+---------- ------------- ------------------ ------------------ ---------------
+OBSERVACIONES
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+     25521	       8 14-NOV-26	    16-NOV-26	       CONFIRMADA
+DEMO_E3 conc sesion A
+
+     25522	       8 14-NOV-26	    16-NOV-26	       CONFIRMADA
+DEMO_E3 conc sesion B
+
+
+
+2 rows deleted.
+
+
+Commit complete.
+
+
+############ 2. DESPUÉS: con SELECT ... FOR UPDATE (sp_crear_reserva_segura) ############
+## A bloquea la fila de HABITACION y reserva sin confirmar. B pide el mismo
+## bloqueo y queda en espera (enq: TX - row lock contention). Al COMMIT de A,
+## B continúa, vuelve a validar con datos ya confirmados y es rechazada.
+Habitación en disputa: 8 · 2026-11-14 a 2026-11-16
+[A 18:22:33.03] FOR UPDATE sobre la habitación 8 + reserva 25523, SIN COMMIT. A espera 8 s...
+[A 18:22:39.10] V$SESSION: la sesión 46 está BLOQUEADA por la sesión 283 (esta) · evento "enq: TX - row lock contention" · espera una fila de HABITACION desde hace 3 s
+[A 18:22:39.11] V$LOCK: esta sesión tiene su bloqueo TX en modo 6 (exclusivo) · BLOCK = 1 -> está bloqueando a otra sesión
+[A 18:22:41.11] COMMIT (libera el bloqueo)
+--- salida de la sesión B (job EXP_CONC_FOR_UPDATE, SUCCEEDED) ---
+[B 18:22:36.12] SID 46 intenta reservar la habitación 8
+[B 18:22:41.12] RECHAZADA: ORA-20002: sp_crear_reserva: la habitación 8 no está disponible entre 2026-11-14 y 2026-11-16.
+[B] tiempo desde el
+intento hasta la respuesta: 5.00 s
+Reservas activas de la habitación 8 en ese rango: 1
+OK: la competencia se serializó; solo una sesión obtuvo la habitación
+
+PL/SQL procedure successfully completed.
+
+
+1 row deleted.
+
+
+Commit complete.
+
+
+############ 3. Variantes: FOR UPDATE NOWAIT y FOR UPDATE WAIT 3 ############
+## Mismo choque, pero B no está dispuesta a esperar indefinidamente:
+##   B1 NOWAIT -> ORA-00054 inmediato, traducido a -20006
+##   B2 WAIT 3 -> espera 3 s, ORA-30006, traducido a -20006
+Habitación en disputa: 8
+[A 18:22:42.22] FOR UPDATE + reserva 25524, SIN COMMIT. A retiene el bloqueo 10 s...
+[A 18:22:52.22] ROLLBACK
+--- salida de la sesión B (job EXP_CONC_NOWAIT, SUCCEEDED) ---
+[B 18:22:45.32] SID 46 intenta reservar la habitación 8
+[B 18:22:45.37] RECHAZADA: ORA-20006: sp_crear_reserva_segura: la habitación 8 está siendo reservada por otra transacción en este momento
+(ORA-00054: resource busy and acquire with NOWAIT specified or timeout expired). Intente de nuevo.
+[B] tiempo desde el intento hasta la respuesta: 0.05 s
+--- salida de la sesión B (job EXP_CONC_WAIT3, SUCCEEDED) ---
+[B 18:22:45.34] SID 294 intenta reservar la habitación 8
+[B 18:22:48.39] RECHAZADA: ORA-20006: sp_crear_reserva_segura: la habitación 8 está siendo reservada por otra transacción en este momento
+(ORA-30006: resource busy; acquire with WAIT timeout expired or DTP service is unavailable). Intente de nuevo.
+[B] tiempo desde el intento hasta la respuesta: 3.05 s
+
+PL/SQL procedure successfully completed.
+
+
+############ 4. Limpieza ############
+
+0 rows deleted.
+
+
+Commit complete.
+
+
+Package dropped.
+
+
+############ FIN DEL EXPERIMENTO DE CONCURRENCIA ############

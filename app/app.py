@@ -18,6 +18,7 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, url
 
 import db
 import entrega3
+import pagos
 import queries as q
 
 load_dotenv()
@@ -27,6 +28,8 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-no-usar-en-produccion")
 
 # Pantallas de la Entrega 3 (transacciones, concurrencia, índices, seguridad)
 app.register_blueprint(entrega3.bp)
+# Pagos en línea con la pasarela simulada (pasarela.py + pagos.py)
+app.register_blueprint(pagos.bp)
 
 # Tope práctico de habitaciones por reserva en ESTE formulario. El modelo
 # (RESERVA_HABITACION) no impone ningún máximo; es solo una comodidad de UI.

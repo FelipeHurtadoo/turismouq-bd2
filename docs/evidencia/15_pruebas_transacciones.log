@@ -1,0 +1,93 @@
+
+############ 0. Limpieza de corridas anteriores de este guion ############
+
+4 rows deleted.
+
+
+Commit complete.
+
+
+############ 1. Caso feliz: reserva + pago en una sola transacción ############
+Reserva 25525 · habitación 1 · 2026-11-14 (2 noches) · valor 734000
+resultado = PAGADA · estado = CONFIRMADA · pagos = 1
+OK: reserva y pago confirmados juntos
+
+PL/SQL procedure successfully completed.
+
+
+############ 2. Rollback PARCIAL: el pago falla, la reserva sobrevive ############
+=== 2.1 Pago mayor al total de la reserva (excepción propia -20011) ===
+Reserva 25526 · resultado = PENDIENTE_PAGO
+estado = PENDIENTE · líneas de habitación = 1 · pagos = 0
+observaciones = DEMO_E3 rollback parcial (monto) | Pago rechazado: ORA-20011: sp_reservar_y_pagar: el pago (999999999) supera el total de la reserva (1479000).
+OK: se deshizo SOLO el pago; la reserva quedó PENDIENTE
+
+PL/SQL procedure successfully completed.
+
+=== 2.2 Medio de pago inválido (lo rechaza el CHECK ck_pago_medio, ORA-02290) ===
+Reserva 25527 · resultado = PENDIENTE_PAGO · estado = PENDIENTE · pagos = 0
+OK: el error del motor también produce el rollback parcial
+
+PL/SQL procedure successfully completed.
+
+=== 2.3 La pasarela de pagos rechaza la transacción (excepción propia -20012) ===
+Reserva 25528 · resultado = PENDIENTE_PAGO · estado = PENDIENTE · pagos = 0
+OK: el rechazo de la pasarela produjo el rollback parcial
+
+PL/SQL procedure successfully completed.
+
+
+############ 3. Rollback TOTAL: la reserva falla, no queda nada ############
+Excepción propagada al llamador -> ORA-20003: sp_crear_reserva: la capacidad de las habitaciones seleccionadas (2) es menor a los 7 huéspedes.
+reservas antes = 25011 · después = 25011
+OK: ROLLBACK TO sp_inicio no dejó nada grabado
+
+PL/SQL procedure successfully completed.
+
+
+############ 4. Anatomía del SAVEPOINT, paso a paso ############
+## Lo mismo que hace sp_reservar_y_pagar por dentro, pero visible:
+## después de cada paso se cuenta qué ve la propia transacción.
+1) reserva creada                           | reserva 1 | líneas 1 | pagos 0
+2) primer pago insertado                    | reserva 1 | líneas 1 | pagos 1
+3) segundo pago insertado                   | reserva 1 | líneas 1 | pagos 2
+4) ROLLBACK TO demo_antes_pago              | reserva 1 | líneas 1 | pagos 0
+OK: los pagos se deshicieron y la reserva sigue en la transacción
+5) ROLLBACK TO demo_inicio                  | reserva 0 | líneas 0 | pagos 0
+
+PL/SQL procedure successfully completed.
+
+
+############ 5. Pagar después: sp_registrar_pago sobre la reserva PENDIENTE ############
+## La reserva del bloque 2.3 quedó PENDIENTE. El cliente vuelve y paga:
+## primero un abono, luego un intento rechazado, luego el saldo.
+5.1 Abono de 100000      -> ABONO · Abono registrado. Saldo pendiente: 634000.
+5.2 Saldo, rechazado     -> RECHAZADO · ORA-20012: Pasarela: pago rechazado (tarjeta bloqueada) · transacción TUQ-DEMO-RECH2.
+5.3 Saldo, aprobado      -> PAGADA · Saldo cubierto. Reserva confirmada.
+Reserva 25528 · estado = CONFIRMADA · pagos = 2
+OK: 2 pagos aprobados, el rechazado no dejó rastro y la reserva quedó CONFIRMADA
+
+PL/SQL procedure successfully completed.
+
+
+=== Reservas de demostración que quedaron grabadas (COMMIT) en la base ===
+
+ID_RESERVA ESTADO	   FECHA_CHECKIN      FECHA_CHECKOUT	 VALOR_TOTAL	 PAGADO
+---------- --------------- ------------------ ------------------ ----------- ----------
+OBSERVACIONES
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+     25525 CONFIRMADA	   14-NOV-26	      16-NOV-26 	      734000	 734000
+DEMO_E3 caso feliz
+
+     25526 PENDIENTE	   14-NOV-26	      17-NOV-26 	     1479000	      0
+DEMO_E3 rollback parcial (monto) | Pago rechazado: ORA-20011: sp_reservar_y_pagar: el pago (999999999) supera el total de la reserva (1479000).
+
+     25527 PENDIENTE	   14-NOV-26	      16-NOV-26 	      734000	      0
+DEMO_E3 rollback parcial (medio) | Pago rechazado: ORA-02290: check constraint (TURISMO_UQ.CK_PAGO_MEDIO) violated
+
+     25528 CONFIRMADA	   14-NOV-26	      16-NOV-26 	      734000	 734000
+DEMO_E3 pasarela rechazada | Pago rechazado: ORA-20012: Pasarela: pago rechazado (fondos insuficientes) · transacción TUQ-DEMO-RECHAZO.
+
+
+
+############ FIN DE LAS PRUEBAS DE TRANSACCIONES ############

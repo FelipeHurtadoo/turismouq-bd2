@@ -1,0 +1,346 @@
+
+Package created.
+
+
+Package body created.
+
+No errors.
+
+############ 0. Punto de partida: sin los índices de esta entrega ############
+Índice previo eliminado: IX_CLIENTE_EMAIL_UPPER
+Índice previo eliminado: IX_RESERVA_ALOJ_CHECKIN
+Índice previo eliminado: IX_RESERVA_CLIENTE
+
+PL/SQL procedure successfully completed.
+
+=== RESERVA: tamaño real sobre el que se mide ===
+
+     FILAS    BLOQUES	      MB TABLESPACE_NAME
+---------- ---------- ---------- ------------------------------
+     25011	  244	       2 TS_TURISMO_HIST
+
+=== Distribución de RESERVA.ESTADO (clave del caso Q4) ===
+
+ESTADO		  RESERVAS	  PCT
+--------------- ---------- ----------
+COMPLETADA	     19978	 79.9
+CANCELADA	      1941	  7.8
+CONFIRMADA	      1793	  7.2
+NO_SHOW 	       970	  3.9
+PENDIENTE	       330	  1.3
+
+
+############ Q1 · Agenda de llegadas de un alojamiento (índice compuesto) ############
+--- PLAN ANTES ---
+------------------------------------------------------------
+| Id  | Operation	    | Name    | Rows  | Cost (%CPU)|
+------------------------------------------------------------
+|   0 | SELECT STATEMENT    |	      |    18 |    84	(2)|
+|   1 |  SORT ORDER BY	    |	      |    18 |    84	(2)|
+|*  2 |   HASH JOIN	    |	      |    18 |    83	(0)|
+|*  3 |    TABLE ACCESS FULL| RESERVA |    18 |    68	(0)|
+|   4 |    TABLE ACCESS FULL| CLIENTE |  3001 |    15	(0)|
+------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+2 - access("C"."ID_CLIENTE"="R"."ID_CLIENTE")
+3 - filter("R"."ID_ALOJAMIENTO"=10 AND
+"R"."FECHA_CHECKIN">=TO_DATE(' 2025-12-01 00:00:00', 'syyyy-mm-dd
+hh24:mi:ss') AND "R"."FECHA_CHECKIN"<TO_DATE(' 2026-01-01 00:00:00',
+'syyyy-mm-dd hh24:mi:ss') AND TRUNC(INTERNAL_FUNCTION("FECHA_CHECKIN"))>
+=TO_DATE(' 2025-12-01 00:00:00', 'syyyy-mm-dd hh24:mi:ss') AND
+"FECHA_CHECKOUT">TO_DATE(' 2025-12-01 00:00:00', 'syyyy-mm-dd
+hh24:mi:ss') AND TRUNC(INTERNAL_FUNCTION("FECHA_CHECKIN"))<TO_DATE('
+2026-01-01 00:00:00', 'syyyy-mm-dd hh24:mi:ss') AND
+"FECHA_RESERVA"<TO_DATE(' 2026-01-01 00:00:00', 'syyyy-mm-dd
+hh24:mi:ss') AND TRUNC(INTERNAL_FUNCTION("FECHA_CHECKOUT"))>TO_DATE('
+2025-12-01 00:00:00', 'syyyy-mm-dd hh24:mi:ss'))
+>> Q1 agenda alojamiento · ANTES            lecturas lógicas/ejec =    299 · ms/ejec =    2.10 · filas = 20
+*** CREATE INDEX ix_reserva_aloj_checkin ON reserva (id_alojamiento, fecha_checkin)
+--- PLAN DESPUÉS ---
+----------------------------------------------------------------------------------------------
+| Id  | Operation			      | Name			| Rows	| Cost (%CPU)|
+----------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT		      | 			|    18 |    36   (3)|
+|   1 |  SORT ORDER BY			      | 			|    18 |    36   (3)|
+|*  2 |   HASH JOIN			      | 			|    18 |    35   (0)|
+|*  3 |    TABLE ACCESS BY INDEX ROWID BATCHED| RESERVA 		|    18 |    20   (0)|
+|*  4 |     INDEX RANGE SCAN		      | IX_RESERVA_ALOJ_CHECKIN |    18 |     2   (0)|
+|   5 |    TABLE ACCESS FULL		      | CLIENTE 		|  3001 |    15   (0)|
+----------------------------------------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+2 - access("C"."ID_CLIENTE"="R"."ID_CLIENTE")
+3 - filter("FECHA_CHECKOUT">TO_DATE(' 2025-12-01 00:00:00', 'syyyy-mm-dd
+hh24:mi:ss') AND "FECHA_RESERVA"<TO_DATE(' 2026-01-01 00:00:00', 'syyyy-mm-dd
+hh24:mi:ss') AND TRUNC(INTERNAL_FUNCTION("FECHA_CHECKOUT"))>TO_DATE(' 2025-12-01
+00:00:00', 'syyyy-mm-dd hh24:mi:ss'))
+4 - access("R"."ID_ALOJAMIENTO"=10 AND "R"."FECHA_CHECKIN">=TO_DATE(' 2025-12-01
+00:00:00', 'syyyy-mm-dd hh24:mi:ss') AND "R"."FECHA_CHECKIN"<TO_DATE(' 2026-01-01
+00:00:00', 'syyyy-mm-dd hh24:mi:ss'))
+filter(TRUNC(INTERNAL_FUNCTION("FECHA_CHECKIN"))>=TO_DATE(' 2025-12-01
+00:00:00', 'syyyy-mm-dd hh24:mi:ss') AND TRUNC(INTERNAL_FUNCTION("FECHA_CHECKIN"))<TO_
+DATE(' 2026-01-01 00:00:00', 'syyyy-mm-dd hh24:mi:ss'))
+>> Q1 agenda alojamiento · DESPUÉS          lecturas lógicas/ejec =     74 · ms/ejec =    0.80 · filas = 20
+
+PL/SQL procedure successfully completed.
+
+
+############ Q2 · Buscar cliente por correo sin distinguir mayúsculas (índice basado en función) ############
+Correo buscado: Cliente1500@Correo-Demo.Co
+--- PLAN ANTES (existe uq_cliente_email, pero no sirve) ---
+----------------------------------------------------------
+| Id  | Operation	  | Name    | Rows  | Cost (%CPU)|
+----------------------------------------------------------
+|   0 | SELECT STATEMENT  |	    |	 30 |	 15   (0)|
+|*  1 |  TABLE ACCESS FULL| CLIENTE |	 30 |	 15   (0)|
+----------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+1 - filter(UPPER("C"."EMAIL")='CLIENTE1500@CORREO-DEMO.CO')
+>> Q2 cliente por correo · ANTES            lecturas lógicas/ejec =     53 · ms/ejec =    1.00 · filas = 1
+*** CREATE INDEX ix_cliente_email_upper ON cliente (UPPER(email))
+--- PLAN DESPUÉS ---
+-------------------------------------------------------------------------------------------
+| Id  | Operation			    | Name		     | Rows  | Cost (%CPU)|
+-------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT		    |			     |	   1 |	   2   (0)|
+|   1 |  TABLE ACCESS BY INDEX ROWID BATCHED| CLIENTE		     |	   1 |	   2   (0)|
+|*  2 |   INDEX RANGE SCAN		    | IX_CLIENTE_EMAIL_UPPER |	   1 |	   1   (0)|
+-------------------------------------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+2 - access(UPPER("EMAIL")='CLIENTE1500@CORREO-DEMO.CO')
+>> Q2 cliente por correo · DESPUÉS          lecturas lógicas/ejec =      4 · ms/ejec =    0.00 · filas = 1
+
+PL/SQL procedure successfully completed.
+
+
+############ Q3 · Historial de reservas de un cliente (FK sin indexar) ############
+--- PLAN ANTES ---
+------------------------------------------------------------------------------
+| Id  | Operation		 | Name 		| Rows	| Cost (%CPU)|
+------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	 |			|     8 |    71   (2)|
+|   1 |  SORT ORDER BY		 |			|     8 |    71   (2)|
+|*  2 |   HASH JOIN		 |			|     8 |    70   (0)|
+|*  3 |    TABLE ACCESS FULL	 | RESERVA		|     8 |    68   (0)|
+|   4 |    VIEW 		 | index$_join$_002	|    60 |     2   (0)|
+|*  5 |     HASH JOIN		 |			|	|	     |
+|   6 |      INDEX FAST FULL SCAN| PK_ALOJAMIENTO	|    60 |     1   (0)|
+|   7 |      INDEX FAST FULL SCAN| UQ_ALOJAM_MUN_NOMBRE |    60 |     1   (0)|
+------------------------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+2 - access("A"."ID_ALOJAMIENTO"="R"."ID_ALOJAMIENTO")
+3 - filter("R"."ID_CLIENTE"=1500)
+5 - access(ROWID=ROWID)
+>> Q3 historial cliente · ANTES             lecturas lógicas/ejec =    255 · ms/ejec =    1.30 · filas = 10
+*** CREATE INDEX ix_reserva_cliente ON reserva (id_cliente)
+--- PLAN DESPUÉS ---
+-------------------------------------------------------------------------------------------
+| Id  | Operation			      | Name		     | Rows  | Cost (%CPU)|
+-------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT		      | 		     |	   8 |	  13   (8)|
+|   1 |  SORT ORDER BY			      | 		     |	   8 |	  13   (8)|
+|*  2 |   HASH JOIN			      | 		     |	   8 |	  12   (0)|
+|   3 |    TABLE ACCESS BY INDEX ROWID BATCHED| RESERVA 	     |	   8 |	  10   (0)|
+|*  4 |     INDEX RANGE SCAN		      | IX_RESERVA_CLIENTE   |	   8 |	   1   (0)|
+|   5 |    VIEW 			      | index$_join$_002     |	  60 |	   2   (0)|
+|*  6 |     HASH JOIN			      | 		     |	     |		  |
+|   7 |      INDEX FAST FULL SCAN	      | PK_ALOJAMIENTO	     |	  60 |	   1   (0)|
+|   8 |      INDEX FAST FULL SCAN	      | UQ_ALOJAM_MUN_NOMBRE |	  60 |	   1   (0)|
+-------------------------------------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+2 - access("A"."ID_ALOJAMIENTO"="R"."ID_ALOJAMIENTO")
+4 - access("R"."ID_CLIENTE"=1500)
+6 - access(ROWID=ROWID)
+>> Q3 historial cliente · DESPUÉS           lecturas lógicas/ejec =     20 · ms/ejec =    0.20 · filas = 10
+
+PL/SQL procedure successfully completed.
+
+
+############ Q4 · Caso donde el índice NO ayuda (estado, baja selectividad) ############
+--- PLAN ANTES (sin índice) ---
+-----------------------------------------------------------
+| Id  | Operation	   | Name    | Rows  | Cost (%CPU)|
+-----------------------------------------------------------
+|   0 | SELECT STATEMENT   |	     |	  60 |	  70   (3)|
+|   1 |  HASH GROUP BY	   |	     |	  60 |	  70   (3)|
+|*  2 |   TABLE ACCESS FULL| RESERVA | 19978 |	  68   (0)|
+-----------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+2 - filter("R"."ESTADO"='COMPLETADA')
+>> Q4 COMPLETADA · sin índice (FULL)        lecturas lógicas/ejec =    247 · ms/ejec =    6.40 · filas = 60
+*** CREATE INDEX ix_reserva_estado ON reserva (estado)
+--- a) PLAN DESPUÉS: el optimizador IGNORA el índice ---
+-----------------------------------------------------------
+| Id  | Operation	   | Name    | Rows  | Cost (%CPU)|
+-----------------------------------------------------------
+|   0 | SELECT STATEMENT   |	     |	  60 |	  70   (3)|
+|   1 |  HASH GROUP BY	   |	     |	  60 |	  70   (3)|
+|*  2 |   TABLE ACCESS FULL| RESERVA | 19978 |	  68   (0)|
+-----------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+2 - filter("R"."ESTADO"='COMPLETADA')
+>> Q4 COMPLETADA · con índice (lo ignora)   lecturas lógicas/ejec =    247 · ms/ejec =    6.60 · filas = 60
+--- b) PLAN FORZADO con /*+ INDEX */ ---
+---------------------------------------------------------------------------------------
+| Id  | Operation			     | Name		 | Rows  | Cost (%CPU)|
+---------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT		     |			 |    60 |   914   (1)|
+|   1 |  HASH GROUP BY			     |			 |    60 |   914   (1)|
+|   2 |   TABLE ACCESS BY INDEX ROWID BATCHED| RESERVA		 | 19978 |   912   (0)|
+|*  3 |    INDEX RANGE SCAN		     | IX_RESERVA_ESTADO | 19978 |    62   (0)|
+---------------------------------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+3 - access("R"."ESTADO"='COMPLETADA')
+>> Q4 COMPLETADA · índice FORZADO           lecturas lógicas/ejec =    286 · ms/ejec =   15.20 · filas = 60
+--- c) Contraste: PENDIENTE (~1 %) con el mismo índice ---
+---------------------------------------------------------------------------------------
+| Id  | Operation			     | Name		 | Rows  | Cost (%CPU)|
+---------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT		     |			 |    60 |    18   (6)|
+|   1 |  HASH GROUP BY			     |			 |    60 |    18   (6)|
+|   2 |   TABLE ACCESS BY INDEX ROWID BATCHED| RESERVA		 |   330 |    17   (0)|
+|*  3 |    INDEX RANGE SCAN		     | IX_RESERVA_ESTADO |   330 |     2   (0)|
+---------------------------------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+3 - access("R"."ESTADO"='PENDIENTE')
+>> Q4 PENDIENTE · con índice                lecturas lógicas/ejec =    176 · ms/ejec =    0.70 · filas = 59
+
+PL/SQL procedure successfully completed.
+
+
+############ Q5 · Caso límite: índice por función sobre el mes (clustering factor) ############
+--- PLAN ANTES (sin índice) ---
+------------------------------------------------------------
+| Id  | Operation	    | Name    | Rows  | Cost (%CPU)|
+------------------------------------------------------------
+|   0 | SELECT STATEMENT    |	      |     4 |    71	(5)|
+|   1 |  SORT ORDER BY	    |	      |     4 |    71	(5)|
+|   2 |   HASH GROUP BY     |	      |     4 |    71	(5)|
+|*  3 |    TABLE ACCESS FULL| RESERVA |   250 |    69	(2)|
+------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+3 - filter(TRUNC(INTERNAL_FUNCTION("R"."FECHA_CHECKIN"),'fmmm')=TO_DA
+TE(' 2025-12-01 00:00:00', 'syyyy-mm-dd hh24:mi:ss'))
+>> Q5 llegadas del mes · sin índice         lecturas lógicas/ejec =    247 · ms/ejec =    5.90 · filas = 4
+*** CREATE INDEX ix_reserva_mes_checkin ON reserva (TRUNC(fecha_checkin, 'MM'))
+Clustering factor = 7459 · bloques de la tabla = 244 · filas = 25012
+--- PLAN con el índice creado: el optimizador lo ignora ---
+------------------------------------------------------------
+| Id  | Operation	    | Name    | Rows  | Cost (%CPU)|
+------------------------------------------------------------
+|   0 | SELECT STATEMENT    |	      |     4 |    71	(5)|
+|   1 |  SORT ORDER BY	    |	      |     4 |    71	(5)|
+|   2 |   HASH GROUP BY     |	      |     4 |    71	(5)|
+|*  3 |    TABLE ACCESS FULL| RESERVA |   695 |    69	(2)|
+------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+3 - filter(TRUNC(INTERNAL_FUNCTION("FECHA_CHECKIN"),'fmmm')=TO_DATE('
+2025-12-01 00:00:00', 'syyyy-mm-dd hh24:mi:ss'))
+>> Q5 llegadas del mes · con índice         lecturas lógicas/ejec =    247 · ms/ejec =    6.00 · filas = 4
+--- PLAN FORZADO con /*+ INDEX */ ---
+---------------------------------------------------------------------------------------------
+| Id  | Operation			      | Name		       | Rows  | Cost (%CPU)|
+---------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT		      | 		       |     4 |   212	 (1)|
+|   1 |  SORT ORDER BY			      | 		       |     4 |   212	 (1)|
+|   2 |   HASH GROUP BY 		      | 		       |     4 |   212	 (1)|
+|   3 |    TABLE ACCESS BY INDEX ROWID BATCHED| RESERVA 	       |   695 |   210	 (0)|
+|*  4 |     INDEX RANGE SCAN		      | IX_RESERVA_MES_CHECKIN |   695 |     2	 (0)|
+---------------------------------------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+4 - access(TRUNC(INTERNAL_FUNCTION("FECHA_CHECKIN"),'fmmm')=TO_DATE(' 2025-12-01
+00:00:00', 'syyyy-mm-dd hh24:mi:ss'))
+>> Q5 llegadas del mes · índice FORZADO     lecturas lógicas/ejec =    226 · ms/ejec =    1.20 · filas = 4
+
+PL/SQL procedure successfully completed.
+
+
+############ RESUMEN DE MEDICIONES ############
+Medición                                   lecturas/ejec   ms/ejec   filas
+--------------------------------------------------------------------------
+Q1 agenda alojamiento · ANTES                        299      2.10      20
+Q1 agenda alojamiento · DESPUÉS                       74      0.80      20
+Q2 cliente por correo · ANTES                         53      1.00       1
+Q2 cliente por correo · DESPUÉS                        4      0.00       1
+Q3 historial cliente · ANTES                         255      1.30      10
+Q3 historial cliente · DESPUÉS                        20      0.20      10
+Q4 COMPLETADA · sin índice (FULL)                    247      6.40      60
+Q4 COMPLETADA · con índice (lo ignora)               247      6.60      60
+Q4 COMPLETADA · índice FORZADO                       286     15.20      60
+Q4 PENDIENTE · con índice                            176      0.70      59
+Q5 llegadas del mes · sin índice                     247      5.90       4
+Q5 llegadas del mes · con índice                     247      6.00       4
+Q5 llegadas del mes · índice FORZADO                 226      1.20       4
+
+PL/SQL procedure successfully completed.
+
+
+Index dropped.
+
+
+Index dropped.
+
+
+=== Índices de la Entrega 3 que quedan en el esquema ===
+
+INDEX_NAME
+--------------------------------------------------------------------------------------------------------------------------------
+TABLE_NAME															 INDEX_TYPE		     TABLESPACE_NAME
+-------------------------------------------------------------------------------------------------------------------------------- --------------------------- ------------------------------
+CLUSTERING_FACTOR	  KB
+----------------- ----------
+IX_CLIENTE_EMAIL_UPPER
+CLIENTE 															 FUNCTION-BASED NORMAL	     TS_TURISMO_IDX
+	      607	 192
+
+IX_RESERVA_ALOJ_CHECKIN
+RESERVA 															 NORMAL 		     TS_TURISMO_IDX
+	    24893	 704
+
+IX_RESERVA_CLIENTE
+RESERVA 															 NORMAL 		     TS_TURISMO_IDX
+	    24538	 512
+
+
+
+INDEX_NAME															 COLUMN_POSITION
+-------------------------------------------------------------------------------------------------------------------------------- ---------------
+COLUMN_NAME
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+IX_CLIENTE_EMAIL_UPPER															       1
+SYS_NC00012$
+
+IX_RESERVA_ALOJ_CHECKIN 														       1
+ID_ALOJAMIENTO
+
+IX_RESERVA_ALOJ_CHECKIN 														       2
+FECHA_CHECKIN
+
+IX_RESERVA_CLIENTE															       1
+ID_CLIENTE
+
+
+=== Expresión del índice basado en función ===
+
+INDEX_NAME
+--------------------------------------------------------------------------------------------------------------------------------
+COLUMN_EXPRESSION
+--------------------------------------------------------------------------------
+IX_CLIENTE_EMAIL_UPPER
+UPPER("EMAIL")
+
+
+
+############ FIN DE ÍNDICES ############

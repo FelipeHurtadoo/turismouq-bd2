@@ -55,6 +55,8 @@ turismouq-bd2/
 │   ├── DOCUMENTACION_ENTREGA1.md
 │   ├── DOCUMENTACION_ENTREGA2.md
 │   ├── DOCUMENTACION_ENTREGA3.md
+│   ├── TurismoUQ-Entrega1.pdf / TurismoUQ-Entrega3.pdf
+│   ├── evidencia/                ← salidas reales de los scripts 15, 16, 17 y 19
 │   ├── ROADMAP_Y_SUSTENTACION.md
 │   └── modelo_relacional.html
 └── app/                              ← interfaz web opcional (sección 10)
@@ -150,10 +152,10 @@ Cada script depende únicamente de objetos creados por los anteriores. Todos son
 | 11 | `sql/11_triggers_entrega2.sql` | `TURISMO_UQ` | Disparador de sentencia (auditoría de `TARIFA`) y de fila (anti-solapamiento) | ~5 s |
 | 12 | `sql/12_pruebas_entrega2.sql` | `TURISMO_UQ` | Checklist de la Entrega 2: función, procedimiento, cursor y ambos disparadores | ~30 s |
 | 13 | `sql/13_privilegios_entrega3.sql` | **`SYS AS SYSDBA`** en `XEPDB1` | Privilegios que faltaban para la Entrega 3 (`CREATE SESSION WITH ADMIN OPTION`, `DROP USER`, `ALTER/DROP PROFILE`, `V$SESSION`, `V$LOCK`, `V$MYSTAT`...) y `RESOURCE_LIMIT = TRUE` | ~2 s |
-| 14 | `sql/14_pkg_transacciones.sql` | `TURISMO_UQ` | Paquete `PKG_TRANSACCIONES`: `sp_reservar_y_pagar` (reserva + pago atómicos con `SAVEPOINT`) y `sp_crear_reserva_segura` (`SELECT ... FOR UPDATE`) | ~2 s |
-| 15 | `sql/15_pruebas_transacciones.sql` | `TURISMO_UQ` | Demostración: caso feliz, **rollback parcial**, rollback total y el savepoint paso a paso | ~5 s |
-| 16 | `sql/16_concurrencia.sql` | `TURISMO_UQ` | Experimento de dos sesiones por la misma habitación: sin bloqueo (doble reserva), con `FOR UPDATE` (bloqueo y espera), `NOWAIT` y `WAIT 3` | ~45 s |
-| 17 | `sql/17_indices.sql` | `TURISMO_UQ` | 3 consultas lentas con plan y medición antes/después (índice compuesto, basado en función y FK), y el caso donde el índice **no** ayuda | ~1 min |
+| 14 | `sql/14_pkg_transacciones.sql` | `TURISMO_UQ` | Paquete `PKG_TRANSACCIONES`: `sp_reservar_y_pagar` (reserva + pago atómicos con `SAVEPOINT`), `sp_registrar_pago` (pagar después o abonar) y `sp_crear_reserva_segura` (`SELECT ... FOR UPDATE`) | ~2 s |
+| 15 | `sql/15_pruebas_transacciones.sql` | `TURISMO_UQ` | Demostración: caso feliz, **rollback parcial** (también por rechazo de la pasarela), rollback total, el savepoint paso a paso y pago posterior del saldo | ~5 s |
+| 16 | `sql/16_concurrencia.sql` | `TURISMO_UQ` | Experimento de dos sesiones por la misma habitación: sin bloqueo (doble reserva), con `FOR UPDATE` (bloqueo y espera), `NOWAIT` y `WAIT 3` | ~30 s |
+| 17 | `sql/17_indices.sql` | `TURISMO_UQ` | 3 consultas lentas con plan y medición antes/después (índice compuesto, basado en función y FK), y el caso donde el índice **no** ayuda | ~10 s |
 | 18 | `sql/18_seguridad.sql` | `TURISMO_UQ` | Vistas de recepción y administración, 4 roles, perfil con límites de sesión y 5 usuarios de demostración | ~5 s |
 | 19 | `sql/19_pruebas_seguridad.sql` | se conecta como cada usuario (`CONNECT`) | Comprueba lo que cada rol puede y no puede hacer; al final vuelve a `TURISMO_UQ` | ~10 s |
 
@@ -252,13 +254,13 @@ Lo esperado:
 
 | Script | Resultado esperado |
 |---|---|
-| 15 · Transacciones | 5 `OK`. En el bloque 2 la reserva queda `PENDIENTE` con 1 línea y **0 pagos** (rollback parcial) |
+| 15 · Transacciones | 7 `OK`. En el bloque 2 la reserva queda `PENDIENTE` con 1 línea y **0 pagos** (rollback parcial); en el 5 se paga después y queda `CONFIRMADA` |
 | 16 · Concurrencia | Escenario 1: `ANOMALÍA DEMOSTRADA` (2 reservas). Escenario 2: `V$SESSION` muestra a B bloqueada, B termina con `ORA-20002` y queda `OK` con 1 reserva. Escenario 3: `-20006` en ~0 s (`NOWAIT`) y en ~3 s (`WAIT 3`) |
 | 17 · Índices | Tabla resumen: Q1, Q2 y Q3 bajan sus lecturas lógicas entre 75 % y 92 %; Q4 forzado sube lecturas y tiempo |
 | 18 · Seguridad | *privilegios de recepción sobre tablas* = **0** |
 | 19 · Pruebas de seguridad | 27 `OK`, ningún `FALLA` |
 
-El detalle de cada número está en `docs/DOCUMENTACION_ENTREGA3.md`.
+El detalle de cada número está en `docs/DOCUMENTACION_ENTREGA3.md`, y las salidas completas de una corrida real en `docs/evidencia/`.
 
 Verificación rápida de que la base tiene datos:
 
@@ -417,6 +419,28 @@ que la capa PL/SQL funciona: crea reservas llamando a
 ningún script de `sql/`. Instrucciones de instalación y arranque en
 `app/README.md`.
 
+### Pasarela de pagos
+
+La interfaz cobra con **TurismoUQ Pagos**, una pasarela en **modo de pruebas**
+(como el sandbox de Wompi o PayU): *Nueva reserva → Continuar al pago* abre un
+checkout con tarjeta o PSE. La respuesta de la pasarela entra a
+`pkg_transacciones.sp_reservar_y_pagar`: si el banco aprueba, reserva y pago
+quedan en un solo `COMMIT`; si rechaza, `ROLLBACK TO sp_antes_pago` deja la
+reserva `PENDIENTE` (rollback parcial) y se puede pagar después desde el botón
+**Pagos** de la barra (`sp_registrar_pago`). Tarjetas de prueba:
+
+| Tarjeta | Resultado |
+|---|---|
+| `4242 4242 4242 4242` / `5555 5555 5555 4444` | Aprobada |
+| `4000 0000 0000 0002` | Rechazada: fondos insuficientes |
+| `4000 0000 0000 0069` / `4000 0000 0000 9987` | Rechazada: vencida / reportada |
+
+Cualquier vencimiento futuro y CVV de 3 dígitos. En PSE, *Banco del Café*
+aprueba y *Banco de la Palma* rechaza. La pasarela no acepta tarjetas reales
+ni guarda el número de la tarjeta.
+
+### Menú Entrega 3
+
 La interfaz tiene además un menú **Entrega 3** con cuatro pantallas que llaman
 a lo que crean los scripts 13 a 18:
 
@@ -466,7 +490,9 @@ Detalles en `app/README.md`.
 
 ### 11.1 Entrega 3 en vivo
 
-**Desde la interfaz web** (menú **Entrega 3**), lo más visual:
+**Desde la interfaz web**, lo más visual: *Nueva reserva → Continuar al pago*
+con la tarjeta `4000 0000 0000 0002` (rechazo → reserva pendiente, rollback
+parcial) y luego **Pagos → Cobrar** con `4242 4242 4242 4242`. En el menú **Entrega 3**:
 Transacciones → "Pago mayor al total" (rollback parcial) · Concurrencia →
 "ANTES" y luego "DESPUÉS" (se ve la sesión bloqueada) · Índices → Q1 y Q4 ·
 Seguridad → RECEP1 y "Abrir 3 sesiones".
@@ -476,7 +502,7 @@ Seguridad → RECEP1 y "Abrir 3 sesiones".
 - **Transacciones** → correr `sql/15_pruebas_transacciones.sql` (F5). Mostrar
   el bloque 2.1 (reserva `PENDIENTE`, 0 pagos: rollback parcial) y la tabla
   paso a paso del bloque 4.
-- **Concurrencia, versión automática** → `sql/16_concurrencia.sql` (~45 s).
+- **Concurrencia, versión automática** → `sql/16_concurrencia.sql` (~30 s).
   Muestra la doble reserva sin bloqueo y, con `FOR UPDATE`, la línea de
   `V$SESSION` con la sesión B bloqueada.
 - **Concurrencia, versión manual** (si piden verlo con dos ventanas):

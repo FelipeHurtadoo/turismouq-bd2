@@ -26,28 +26,38 @@ paquetes, vistas, índices y objetos de seguridad.
 | # | Script | Se ejecuta como | Qué hace |
 |---|---|---|---|
 | 13 | `sql/13_privilegios_entrega3.sql` | `SYS AS SYSDBA` | Privilegios de sistema que faltaban (`CREATE SESSION WITH ADMIN OPTION`, `DROP USER`, `ALTER/DROP PROFILE`), acceso directo a `V$SESSION`, `V$LOCK`, `V$MYSTAT`... y `RESOURCE_LIMIT = TRUE` |
-| 14 | `sql/14_pkg_transacciones.sql` | `TURISMO_UQ` | Paquete `PKG_TRANSACCIONES`: `sp_reservar_y_pagar`, `sp_crear_reserva_segura` (con `FOR UPDATE`) y `sp_buscar_hueco` |
-| 15 | `sql/15_pruebas_transacciones.sql` | `TURISMO_UQ` | Demostración: caso feliz, rollback parcial (2 variantes), rollback total y anatomía del `SAVEPOINT` |
+| 14 | `sql/14_pkg_transacciones.sql` | `TURISMO_UQ` | Paquete `PKG_TRANSACCIONES`: `sp_reservar_y_pagar`, `sp_registrar_pago`, `sp_crear_reserva_segura` (con `FOR UPDATE`) y `sp_buscar_hueco` |
+| 15 | `sql/15_pruebas_transacciones.sql` | `TURISMO_UQ` | Demostración: caso feliz, rollback parcial (3 variantes, una de ellas el rechazo de la pasarela), rollback total, anatomía del `SAVEPOINT` y pago posterior del saldo |
 | 16 | `sql/16_concurrencia.sql` | `TURISMO_UQ` | Experimento automático de concurrencia (la sesión B es un job del scheduler) |
 | 16a/b/c | `sql/16a_..._sesion_A.sql`, `16b_..._sesion_B.sql`, `16c_..._monitor.sql` | `TURISMO_UQ` | El mismo experimento, para hacerlo **en vivo** con dos ventanas |
 | 17 | `sql/17_indices.sql` | `TURISMO_UQ` | Paquete `PKG_MEDICION` + las consultas lentas con plan y medición antes/después |
 | 18 | `sql/18_seguridad.sql` | `TURISMO_UQ` | Vistas de ámbito, 4 roles, perfil y 5 usuarios de demostración |
 | 19 | `sql/19_pruebas_seguridad.sql` | (se conecta como cada usuario) | Comprueba lo que cada rol puede y no puede hacer |
 
+### Evidencia
+
+Las salidas **completas y sin editar** de los scripts de prueba están en
+`docs/evidencia/` (`15_pruebas_transacciones.log`, `16_concurrencia.log`,
+`17_indices.log`, `19_pruebas_seguridad.log`), todas de una misma sesión de
+trabajo sobre la base cargada. Los fragmentos que se citan en este documento
+salen literalmente de esos archivos. Los números (ids de reserva, horas,
+milisegundos) cambian en cada corrida; los resultados (`OK`, la doble reserva,
+el bloqueo, las lecturas lógicas) se repiten.
+
 ### Checklist de cumplimiento, punto por punto
 
-| Requisito del PDF | Dónde está | Evidencia (corrida real) |
+| Requisito del PDF | Dónde está | Evidencia (`docs/evidencia/`) |
 |---|---|---|
 | Procedimiento que registre reserva y pago de forma **atómica** | `pkg_transacciones.sp_reservar_y_pagar` (script 14) | Script 15, bloque 1: reserva `CONFIRMADA` + 1 pago en una sola transacción |
-| Con `SAVEPOINT` y **demostración de un rollback parcial** | mismo procedimiento: `SAVEPOINT sp_inicio` / `sp_antes_pago` | Script 15, bloques 2.1 y 2.2: el pago falla, `ROLLBACK TO sp_antes_pago` deshace solo el pago, la reserva queda `PENDIENTE` con 1 línea de habitación y 0 pagos. Bloque 4: los conteos paso a paso |
+| Con `SAVEPOINT` y **demostración de un rollback parcial** | mismo procedimiento: `SAVEPOINT sp_inicio` / `sp_antes_pago` | Script 15, bloques 2.1, 2.2 y 2.3: el pago falla, `ROLLBACK TO sp_antes_pago` deshace solo el pago, la reserva queda `PENDIENTE` con 1 línea de habitación y 0 pagos. Bloque 4: los conteos paso a paso |
 | Dos sesiones reservando la misma habitación al tiempo | script 16 (automático) y 16a/16b (manual) | Escenario 1: **doble reserva** de la misma habitación (2 filas) |
 | Mostrar el bloqueo | `exp_concurrencia.mostrar_bloqueos` (16) y `16c_concurrencia_monitor.sql` | `V$SESSION`: sesión B *"BLOQUEADA por la sesión A · evento enq: TX - row lock contention · espera una fila de HABITACION"*; `V$LOCK`: TX modo 6 con `BLOCK = 1` |
-| Aplicar `SELECT ... FOR UPDATE` y comparar antes/después | `pkg_transacciones.sp_crear_reserva_segura` | Escenario 2: B espera ~5 s, al `COMMIT` de A recibe `ORA-20002`; queda **1** reserva. Escenario 3: `NOWAIT` falla en 0,00 s, `WAIT 3` en 3,00 s |
+| Aplicar `SELECT ... FOR UPDATE` y comparar antes/después | `pkg_transacciones.sp_crear_reserva_segura` | Escenario 2: B espera 5,00 s, al `COMMIT` de A recibe `ORA-20002`; queda **1** reserva. Escenario 3: `NOWAIT` falla en 0,05 s, `WAIT 3` en 3,05 s |
 | 3 consultas lentas, plan antes y después | script 17, Q1, Q2, Q3 | Planes de `DBMS_XPLAN` impresos antes y después de cada `CREATE INDEX` |
 | Al menos un índice **compuesto** | `ix_reserva_aloj_checkin (id_alojamiento, fecha_checkin)` | Q1: 299 → 74 lecturas lógicas por ejecución |
 | Al menos un índice **basado en función** | `ix_cliente_email_upper (UPPER(email))` | Q2: 53 → 4 lecturas lógicas por ejecución |
 | Medir | `pkg_medicion.medir` (lecturas lógicas de `V$MYSTAT` + tiempo, 100 repeticiones) | Tabla resumen al final del script 17 (FASE 4) |
-| Un caso donde el índice no ayude, explicado | Q4: `ix_reserva_estado`; Q5 (caso límite): `TRUNC(fecha_checkin,'MM')` | El optimizador ignora el índice; forzado con `/*+ INDEX */` empeora: 247 → 286 lecturas y 5,0 → 11,3 ms |
+| Un caso donde el índice no ayude, explicado | Q4: `ix_reserva_estado`; Q5 (caso límite): `TRUNC(fecha_checkin,'MM')` | El optimizador ignora el índice; forzado con `/*+ INDEX */` empeora: 247 → 286 lecturas y 6,4 → 15,2 ms |
 | Cuatro roles con privilegios diferenciados | `rol_recepcion`, `rol_admin_alojamiento`, `rol_gerente`, `rol_auditor` (script 18) | Script 19: 27 pruebas `OK` conectándose como cada usuario |
 | Recepción accede solo a través de vistas | `GRANT SELECT` solo sobre `v_recepcion_reservas` y `v_recepcion_habitaciones` | Script 18: *privilegios de recepción sobre tablas = 0*. Script 19: `SELECT` a `RESERVA`, `CLIENTE`, `PAGO` → `ORA-00942` |
 | Un perfil con límites de sesión | `perfil_turismo_operativo` | `SESSIONS_PER_USER 2`: la tercera conexión de `RECEP1` recibe `ORA-02391`. `LOGICAL_READS_PER_CALL`: cortó con `ORA-02395` una consulta demasiado pesada durante el desarrollo (ver FASE 5.4) |
@@ -112,6 +122,7 @@ volvería a fallar. El motivo queda en la reserva, que sí es válida.
 | Valor del pago ≤ 0 | `RAISE_APPLICATION_ERROR(-20010)` del procedimiento | — |
 | Pago mayor al total de la reserva | `RAISE_APPLICATION_ERROR(-20011)` del procedimiento | Script 15, bloque 2.1 |
 | Medio de pago no admitido | `ORA-02290` del `CHECK ck_pago_medio` de la Entrega 1 | Script 15, bloque 2.2 |
+| La pasarela de pagos rechazó la transacción | `RAISE_APPLICATION_ERROR(-20012)` cuando `p_respuesta_pasarela <> 'APROBADO'` | Script 15, bloque 2.3, y la interfaz web (FASE 2b) |
 
 El bloque 2.2 importa: muestra que el rollback parcial no depende de que el
 error sea "nuestro". Una restricción del modelo de la Entrega 1 dispara el
@@ -138,6 +149,49 @@ OK: los pagos se deshicieron y la reserva sigue en la transacción
 Detalle para la sustentación: después de un `ROLLBACK TO` la transacción
 **sigue abierta**. Un savepoint no termina la transacción, solo la recorta.
 Por eso el bloque termina con un `ROLLBACK` explícito.
+
+---
+
+## FASE 2b — Pasarela de pagos
+
+La interfaz web cobra con una pasarela propia, **TurismoUQ Pagos**, que
+funciona en **modo de pruebas** (como el *sandbox* de Wompi, PayU o Stripe):
+valida la tarjeta (algoritmo de Luhn, vencimiento, CVV) o el banco de PSE,
+"consulta al banco" y responde `APROBADO` o `RECHAZADO` con un número de
+transacción `TUQ-...`. Solo acepta tarjetas y bancos de prueba; no mueve
+dinero ni guarda el número de la tarjeta (a la base llegan solo la respuesta,
+el número de transacción y la marca con los últimos 4 dígitos).
+
+Lo importante para la entrega: **la pasarela no decide qué se guarda**. Su
+respuesta entra como parámetro a los procedimientos y es la transacción de
+Oracle la que decide:
+
+| Situación | Procedimiento | Qué hace la base |
+|---|---|---|
+| Reserva nueva, banco aprueba | `sp_reservar_y_pagar(..., p_respuesta_pasarela => 'APROBADO', p_referencia => 'TUQ-...')` | Reserva + pago con la referencia de la pasarela, un solo `COMMIT` |
+| Reserva nueva, banco rechaza | igual, con `'RECHAZADO'` | `-20012` dentro de la fase de pago → `ROLLBACK TO sp_antes_pago`: reserva `PENDIENTE`, 0 pagos (**rollback parcial**) |
+| Habitación ya tomada | igual | `-20002` en la fase de reserva → `ROLLBACK TO sp_inicio`: no queda nada y no se cobra |
+| Pagar después o abonar una reserva `PENDIENTE` | `sp_registrar_pago` | `SELECT ... FOR UPDATE` sobre la reserva, `SAVEPOINT sp_pago`, pago; si el saldo llega a 0 la reserva pasa a `CONFIRMADA`. Si el banco rechaza: `ROLLBACK TO sp_pago` y la reserva sigue igual |
+
+`sp_registrar_pago` bloquea la fila de la reserva antes de calcular el saldo
+por la misma razón de la FASE 3: si dos cajeros cobraran el mismo saldo al
+mismo tiempo, sin bloqueo ambos verían el saldo completo y la reserva quedaría
+pagada dos veces.
+
+Evidencia: bloques 2.3 y 5 de `docs/evidencia/15_pruebas_transacciones.log`:
+
+```
+OK: el rechazo de la pasarela produjo el rollback parcial
+5.1 Abono de 100000      -> ABONO · Abono registrado. Saldo pendiente: 634000.
+5.2 Saldo, rechazado     -> RECHAZADO · ORA-20012: Pasarela: pago rechazado (tarjeta bloqueada) · transacción TUQ-DEMO-RECH2.
+5.3 Saldo, aprobado      -> PAGADA · Saldo cubierto. Reserva confirmada.
+OK: 2 pagos aprobados, el rechazado no dejó rastro y la reserva quedó CONFIRMADA
+```
+
+Tarjetas de prueba de la interfaz: `4242 4242 4242 4242` y
+`5555 5555 5555 4444` aprueban; `4000 0000 0000 0002` (fondos insuficientes),
+`4000 0000 0000 0069` y `4000 0000 0000 9987` rechazan. En PSE, *Banco del
+Café* aprueba y *Banco de la Palma* rechaza.
 
 ---
 
@@ -178,19 +232,25 @@ normales de la misma conexión comparten la sesión.
 
 ### Escenario 1 · ANTES: sin bloqueo
 
+Salida literal de `docs/evidencia/16_concurrencia.log`. Las líneas `[B ...]`
+las escribió el job (la otra sesión) y A las imprime al final, por eso
+aparecen después del `COMMIT` aunque ocurrieron antes:
+
 ```
-Habitación en disputa: 4 · 2026-11-04 a 2026-11-06 · reservas activas antes: 0
-[A 18:38:37.22] reserva 25027 insertada, SIN COMMIT. A espera 8 s...
-[B 18:38:40.06] SID 296 intenta reservar la habitación 4
-[B 18:38:40.18] COMMIT: reserva 25028 creada
-[B] tiempo desde el intento hasta la respuesta: 0.11 s
-[A 18:38:43.24] V$LOCK: TX en modo 6 · BLOCK = 0 -> nadie está esperando
-[A 18:38:45.24] COMMIT
-Reservas activas de la habitación 4 en ese rango: 2
+Habitación en disputa: 8 · 2026-11-14 a 2026-11-16 · reservas activas antes: 0
+[A 18:22:24.52] reserva 25521 insertada, SIN COMMIT. A espera 8 s...
+[A 18:22:30.87] V$LOCK: esta sesión tiene su bloqueo TX en modo 6 (exclusivo) · BLOCK = 0 -> nadie está esperando
+[A 18:22:30.87] V$SESSION: ninguna sesión está esperando a esta.
+[A 18:22:32.88] COMMIT
+--- salida de la sesión B (job EXP_CONC_SIN_BLOQUEO, SUCCEEDED) ---
+[B 18:22:27.62] SID 46 intenta reservar la habitación 8
+[B 18:22:27.79] COMMIT: reserva 25522 creada
+[B] tiempo desde el intento hasta la respuesta: 0.17 s
+Reservas activas de la habitación 8 en ese rango: 2
 ANOMALÍA DEMOSTRADA: la misma habitación quedó vendida dos veces
 ```
 
-B no esperó nada (0,11 s) y nadie quedó bloqueado: no hubo ningún punto de
+B no esperó nada (0,17 s) y nadie quedó bloqueado: no hubo ningún punto de
 encuentro entre las dos transacciones.
 
 ### Escenario 2 · DESPUÉS: con `SELECT ... FOR UPDATE`
@@ -202,23 +262,27 @@ SELECT id_habitacion FROM habitacion WHERE id_habitacion = :1 FOR UPDATE
 ```
 
 ```
-[A 18:38:45.32] FOR UPDATE sobre la habitación 4 + reserva 25029, SIN COMMIT. A espera 8 s...
-[B 18:38:48.27] SID 296 intenta reservar la habitación 4
-[A 18:38:51.34] V$SESSION: la sesión 296 está BLOQUEADA por la sesión 41 (esta)
-                · evento "enq: TX - row lock contention" · espera una fila de HABITACION desde hace 3 s
-[A 18:38:51.35] V$LOCK: TX en modo 6 (exclusivo) · BLOCK = 1 -> está bloqueando a otra sesión
-[A 18:38:53.35] COMMIT (libera el bloqueo)
-[B 18:38:53.36] RECHAZADA: ORA-20002: la habitación 4 no está disponible entre 2026-11-04 y 2026-11-06.
-[B] tiempo desde el intento hasta la respuesta: 5.01 s
-Reservas activas de la habitación 4 en ese rango: 1
+Habitación en disputa: 8 · 2026-11-14 a 2026-11-16
+[A 18:22:33.03] FOR UPDATE sobre la habitación 8 + reserva 25523, SIN COMMIT. A espera 8 s...
+[A 18:22:39.10] V$SESSION: la sesión 46 está BLOQUEADA por la sesión 283 (esta) · evento "enq: TX - row lock contention" · espera una fila de HABITACION desde hace 3 s
+[A 18:22:39.11] V$LOCK: esta sesión tiene su bloqueo TX en modo 6 (exclusivo) · BLOCK = 1 -> está bloqueando a otra sesión
+[A 18:22:41.11] COMMIT (libera el bloqueo)
+--- salida de la sesión B (job EXP_CONC_FOR_UPDATE, SUCCEEDED) ---
+[B 18:22:36.12] SID 46 intenta reservar la habitación 8
+[B 18:22:41.12] RECHAZADA: ORA-20002: sp_crear_reserva: la habitación 8 no está disponible entre 2026-11-14 y 2026-11-16.
+[B] tiempo desde el intento hasta la respuesta: 5.00 s
+Reservas activas de la habitación 8 en ese rango: 1
 OK: la competencia se serializó; solo una sesión obtuvo la habitación
 ```
+
+Fíjese en las horas: B pidió la habitación a las 18:22:36.12 y recibió la
+respuesta a las 18:22:41.12, exactamente cuando A hizo `COMMIT`.
 
 ### Comparación
 
 | | Sin bloqueo (antes) | Con `FOR UPDATE` (después) |
 |---|---|---|
-| ¿B espera? | No (0,11 s) | Sí, hasta el `COMMIT` de A (5,01 s) |
+| ¿B espera? | No (0,17 s) | Sí, hasta el `COMMIT` de A (5,00 s) |
 | Lo que muestra `V$SESSION` | Nadie bloqueado | B en `enq: TX - row lock contention` sobre una fila de `HABITACION` |
 | `V$LOCK` de A | TX, `BLOCK = 0` | TX, `BLOCK = 1` |
 | Resultado para B | Reserva creada | `ORA-20002` (habitación no disponible) |
@@ -258,8 +322,8 @@ reservando la misma habitación. El parámetro `p_espera_seg` lo controla:
 | `p_espera_seg` | Sentencia | Lo que pasó en la prueba |
 |---|---|---|
 | `NULL` | `FOR UPDATE` | Espera indefinida (escenario 2) |
-| `0` | `FOR UPDATE NOWAIT` | `ORA-00054` en **0,00 s**, traducido a `-20006` |
-| `3` | `FOR UPDATE WAIT 3` | `ORA-30006` a los **3,00 s**, traducido a `-20006` |
+| `0` | `FOR UPDATE NOWAIT` | `ORA-00054` en **0,05 s**, traducido a `-20006` |
+| `3` | `FOR UPDATE WAIT 3` | `ORA-30006` a los **3,05 s**, traducido a `-20006` |
 
 `WAIT n` no admite una variable de enlace en lugar del número, por eso esa
 sentencia se arma con SQL dinámico.
@@ -298,19 +362,20 @@ EXEC pkg_medicion.medir('mi consulta', 'SELECT ... ');
 
 ### Resultados
 
-`RESERVA`: 25.009 filas en 244 bloques. `CLIENTE`: 3.000 filas en ~50 bloques.
+Valores de `docs/evidencia/17_indices.log` (una sola corrida). `RESERVA`:
+~25.000 filas en 244 bloques. `CLIENTE`: 3.000 filas en ~50 bloques.
 
 | Consulta | Índice | Lecturas lógicas / ejec. | ms / ejec. | Plan antes → después |
 |---|---|---|---|---|
-| **Q1** Agenda de llegadas de un alojamiento en un mes | `ix_reserva_aloj_checkin (id_alojamiento, fecha_checkin)` — **compuesto** | 299 → **74** (−75 %) | 1,70 → 0,60 | `TABLE ACCESS FULL RESERVA` → `INDEX RANGE SCAN` |
-| **Q2** Buscar un cliente por correo sin distinguir mayúsculas | `ix_cliente_email_upper (UPPER(email))` — **basado en función** | 53 → **4** (−92 %) | 0,80 → 0,00 | `TABLE ACCESS FULL CLIENTE` → `INDEX RANGE SCAN` |
-| **Q3** Historial de reservas de un cliente | `ix_reserva_cliente (id_cliente)` — FK sin indexar | 255 → **20** (−92 %) | 1,00 → 0,20 | `TABLE ACCESS FULL RESERVA` → `INDEX RANGE SCAN` |
-| **Q4** Valor de las reservas `COMPLETADA` por alojamiento | `ix_reserva_estado (estado)` — **no ayuda** | 247 → 247 (lo ignora) · forzado: **286** | 4,90 → 5,10 · forzado: **11,30** | `FULL` → `FULL` (forzado: `INDEX RANGE SCAN`, costo 70 → 913) |
-| Q4 contraste: `PENDIENTE` | el mismo `ix_reserva_estado` | 175 | 0,50 | `INDEX RANGE SCAN` |
-| **Q5** (caso límite) Llegadas de un mes con `TRUNC(fecha_checkin,'MM')` | `ix_reserva_mes_checkin` — basado en función | 247 → 247 (lo ignora) · forzado: 226 | 4,50 → 4,50 · forzado: 1,00 | `FULL` → `FULL` (forzado: costo 69 → 212) |
+| **Q1** Agenda de llegadas de un alojamiento en un mes | `ix_reserva_aloj_checkin (id_alojamiento, fecha_checkin)` — **compuesto** | 299 → **74** (−75 %) | 2,10 → 0,80 | `TABLE ACCESS FULL RESERVA` → `INDEX RANGE SCAN` |
+| **Q2** Buscar un cliente por correo sin distinguir mayúsculas | `ix_cliente_email_upper (UPPER(email))` — **basado en función** | 53 → **4** (−92 %) | 1,00 → 0,00 | `TABLE ACCESS FULL CLIENTE` → `INDEX RANGE SCAN` |
+| **Q3** Historial de reservas de un cliente | `ix_reserva_cliente (id_cliente)` — FK sin indexar | 255 → **20** (−92 %) | 1,30 → 0,20 | `TABLE ACCESS FULL RESERVA` → `INDEX RANGE SCAN` |
+| **Q4** Valor de las reservas `COMPLETADA` por alojamiento | `ix_reserva_estado (estado)` — **no ayuda** | 247 → 247 (lo ignora) · forzado: **286** | 6,40 → 6,60 · forzado: **15,20** | `FULL` → `FULL` (forzado: `INDEX RANGE SCAN`, costo 70 → 914) |
+| Q4 contraste: `PENDIENTE` | el mismo `ix_reserva_estado` | 176 | 0,70 | `INDEX RANGE SCAN` |
+| **Q5** (caso límite) Llegadas de un mes con `TRUNC(fecha_checkin,'MM')` | `ix_reserva_mes_checkin` — basado en función | 247 → 247 (lo ignora) · forzado: 226 | 5,90 → 6,00 · forzado: 1,20 | `FULL` → `FULL` (forzado: costo 71 → 212) |
 
-Los números son de una corrida real; pueden variar levemente entre corridas
-porque la carga masiva genera conteos derivados un poco distintos.
+Las lecturas lógicas son estables entre corridas; los milisegundos varían con
+la carga del equipo (por eso no son la métrica principal).
 
 ### Q1 · Índice compuesto: agenda de llegadas
 
@@ -383,8 +448,8 @@ equivocada, y se demuestra en tres partes:
 `TABLE ACCESS FULL` y las lecturas no cambian (247).
 
 **b) Se le obliga con `/*+ INDEX(r ix_reserva_estado) */` y es peor:** 286
-lecturas lógicas en lugar de 247 y más del doble de tiempo (11,3 ms contra
-5,0 ms). El costo estimado sube de 70 a 913.
+lecturas lógicas en lugar de 247 y más del doble de tiempo (15,2 ms contra
+6,4 ms). El costo estimado sube de 70 a 914.
 
 **Por qué.** `COMPLETADA` es el **79,9 %** de las reservas. Un índice B*Tree
 sirve para encontrar **pocas** filas. Para traer el 80 % de la tabla por
@@ -395,7 +460,7 @@ en lecturas multibloque. El optimizador lo sabe porque `ESTADO` tiene un
 **histograma de frecuencias**: conoce la proporción exacta de cada valor.
 
 **c) Contraste: el mismo índice sí sirve para `PENDIENTE`** (1,3 %): el
-optimizador lo elige solo y baja a 175 lecturas. Conclusión: **un índice no es
+optimizador lo elige solo y baja a 176 lecturas. Conclusión: **un índice no es
 bueno o malo en sí mismo; depende de la selectividad del valor buscado.**
 
 Decisión: `ix_reserva_estado` **no se conserva**. Para el reporte que motivó
@@ -417,7 +482,7 @@ así que se dejó documentado porque enseña algo distinto a Q4:
 
 El mes devuelve ~1.100 filas (4 % de la tabla, mucho más selectivo que Q4) y
 aun así el optimizador prefiere el barrido. La razón es el **clustering
-factor**: 7.459, cerca del número de **filas** (25.009) y lejos del de
+factor**: 7.459, cerca del número de **filas** (~25.000) y lejos del de
 **bloques** (244). Las reservas se insertaron en orden de creación, no de
 llegada, así que las llegadas de diciembre están repartidas en casi todos los
 bloques de la tabla. Leerlas por índice es visitar casi los mismos bloques
@@ -425,10 +490,10 @@ que el barrido, pero uno por uno.
 
 Se presenta como caso **límite** y no como fracaso del índice, con
 honestidad: forzado, ahorra solo ~9 % de lecturas (226 contra 247) y sí ahorra
-CPU (1,0 ms contra 4,5 ms) porque no evalúa `TRUNC` sobre 25.000 filas. Pero
+CPU (1,2 ms contra 5,9 ms) porque no evalúa `TRUNC` sobre 25.000 filas. Pero
 con los bloques en disco y no en caché, ~220 lecturas de un bloque cada una
 serían más lentas que ~250 bloques leídos en ráfagas, y por eso el modelo de
-costo (212 contra 69) lo descarta. **Una buena selectividad no basta: si las
+costo (212 contra 71) lo descarta. **Una buena selectividad no basta: si las
 filas están dispersas, el índice casi no ahorra trabajo.** Tampoco se
 conserva.
 
@@ -586,8 +651,8 @@ el privilegio para esa operación.
 
 | Script | Bloques | Resultado de la corrida |
 |---|---|---|
-| `15_pruebas_transacciones.sql` | Caso feliz, rollback parcial ×2, rollback total, anatomía del savepoint | 5 `OK` |
-| `16_concurrencia.sql` | Sin bloqueo, con `FOR UPDATE`, `NOWAIT`/`WAIT 3` | Anomalía demostrada → `OK` serializado → `-20006` en 0 s y en 3 s |
+| `15_pruebas_transacciones.sql` | Caso feliz, rollback parcial ×3 (monto, medio de pago, pasarela), rollback total, anatomía del savepoint, pago posterior del saldo | 7 `OK` |
+| `16_concurrencia.sql` | Sin bloqueo, con `FOR UPDATE`, `NOWAIT`/`WAIT 3` | Anomalía demostrada → `OK` serializado → `-20006` en 0,05 s y en 3,05 s |
 | `17_indices.sql` | Q1–Q5 con plan y medición | Tabla resumen de la FASE 4 |
 | `19_pruebas_seguridad.sql` | 5 usuarios, 27 comprobaciones | 27 `OK`, 0 `FALLA` |
 
@@ -602,7 +667,7 @@ también al terminar): el histórico cargado no se toca.
 - Ninguna tabla, columna, restricción ni secuencia de la Entrega 1.
 - `PKG_TURISMO` y los dos disparadores de la Entrega 2 siguen idénticos.
   `PKG_TRANSACCIONES` los compone; no los reemplaza.
-- Objetos nuevos: paquetes `PKG_TRANSACCIONES` y `PKG_MEDICION`; vistas
+- Objetos nuevos: paquetes `PKG_TRANSACCIONES` (con `sp_registrar_pago` para la pasarela) y `PKG_MEDICION`; vistas
   `V_RECEPCION_RESERVAS`, `V_RECEPCION_HABITACIONES`, `V_ADMIN_TARIFAS`,
   `V_ADMIN_HABITACIONES`, `V_ADMIN_INGRESOS_MES`; índices
   `IX_RESERVA_ALOJ_CHECKIN`, `IX_CLIENTE_EMAIL_UPPER`, `IX_RESERVA_CLIENTE`;

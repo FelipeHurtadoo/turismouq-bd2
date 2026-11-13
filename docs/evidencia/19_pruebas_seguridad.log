@@ -1,0 +1,83 @@
+
+############ 1. RECEP1 (rol_recepcion, alojamiento 1) ############
+Conectado como RECEP1
+OK   : la vista v_recepcion_reservas devuelve 411 reservas, todas del alojamiento 1
+OK   : v_recepcion_habitaciones muestra 5 habitaciones de su alojamiento
+OK   : SELECT directo a la tabla RESERVA -> ORA-00942: table or view does not exist
+OK   : SELECT directo a la tabla CLIENTE -> ORA-00942: table or view does not exist
+OK   : SELECT directo a la tabla PAGO -> ORA-00942: table or view does not exist
+OK   : UPDATE sobre la vista de reservas -> ORA-01031: insufficient privileges
+OK   : Vistas del administrador (tarifas) -> ORA-00942: table or view does not exist
+OK   : Crear una tabla propia -> ORA-01031: insufficient privileges
+
+PL/SQL procedure successfully completed.
+
+=== Recepción reserva y cobra por el PROCEDIMIENTO (no por INSERT) ===
+OK   : reserva 25531 en el alojamiento 1 · resultado PAGADA
+OK   : reserva en el alojamiento 2 -> ORA-20020: El usuario RECEP1 solo puede operar sobre el alojamiento 1.
+
+PL/SQL procedure successfully completed.
+
+=== Límites del perfil que rigen a este usuario ===
+
+RESOURCE_NAME			 LIMIT
+-------------------------------- ----------------------------------------
+CONNECT_TIME			 600
+IDLE_TIME			 15
+LOGICAL_READS_PER_CALL		 200000
+SESSIONS_PER_USER		 2
+
+
+############ 2. RECEP2 (rol_recepcion, alojamiento 2): misma vista, otras filas ############
+OK   : RECEP2 ve 441 reservas, todas del alojamiento 2 (mismo GRANT que RECEP1, filas distintas)
+
+PL/SQL procedure successfully completed.
+
+
+############ 3. ADMIN1 (rol_admin_alojamiento, alojamiento 1) ############
+OK   : hereda rol_recepcion · ve 411 reservas de su alojamiento
+OK   : UPDATE de la tarifa 1 (+1000) por v_admin_tarifas
+OK   : tarifa 1 restaurada (-1000)
+OK   : UPDATE sobre tarifas del alojamiento 2 afectó 0 filas
+OK   : Mover una tarifa a otro alojamiento (columna sin privilegio) -> ORA-01031: insufficient privileges
+OK   : UPDATE directo a la tabla TARIFA -> ORA-00942: table or view does not exist
+OK   : Leer la auditoría -> ORA-00942: table or view does not exist
+
+PL/SQL procedure successfully completed.
+
+
+############ 4. GERENTE1 (rol_gerente, transversal y de solo lectura) ############
+OK   : lee RESERVA completa · 25012 reservas de 60 alojamientos
+OK   : lee la vista materializada · 432 filas
+OK   : Modificar una tarifa -> ORA-01031: insufficient privileges
+OK   : Borrar una reserva -> ORA-01031: insufficient privileges
+OK   : Leer la auditoría -> ORA-00942: table or view does not exist
+
+PL/SQL procedure successfully completed.
+
+
+############ 5. AUDITOR1 (rol_auditor, evidencia en solo lectura) ############
+OK   : la auditoría registra 8 cambios hechos por ADMIN1
+OK   : Borrar evidencia de la auditoría -> ORA-01031: insufficient privileges
+OK   : Leer datos personales (CLIENTE) -> ORA-00942: table or view does not exist
+OK   : Ejecutar la liquidación -> ORA-06550: line 1, column 7:
+PLS-00201: identifier 'TURISMO_UQ.PKG_TURISMO' must be declared
+
+PL/SQL procedure successfully completed.
+
+=== Lo que ve el auditor: últimos cambios de tarifa y su autor ===
+
+ID_AUDITORIA FECHA_HORA 								 USUARIO_BD				  OPERACION   ID_TARIFA VALOR_ANTERIOR VALOR_NUEVO
+------------ --------------------------------------------------------------------------- ---------------------------------------- ---------- ---------- -------------- -----------
+	  29 13-NOV-26 06.23.24.380044 PM						 ADMIN1 				  UPDATE	      1 	474000	    473000
+	  28 13-NOV-26 06.23.24.362911 PM						 ADMIN1 				  UPDATE	      1 	473000	    474000
+
+
+############ 6. Límite de sesiones del perfil (prueba manual) ############
+## SESSIONS_PER_USER = 2 no se puede probar desde UNA sola sesión.
+## Abra tres terminales y en cada una:
+##    sqlplus recep1/Demo_UQ2026@localhost:1521/XEPDB1
+## Las dos primeras conectan; la tercera recibe:
+##    ORA-02391: exceeded simultaneous SESSIONS_PER_USER limit
+
+############ FIN DE LAS PRUEBAS DE SEGURIDAD (de nuevo como TURISMO_UQ) ############

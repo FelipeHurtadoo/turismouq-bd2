@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Pagar · TurismoUQ Pagos{% endblock %}
+{% block content %}
+<div class="encabezado">
+   <h1 class="h3 mb-1">{{ 'Pagar la reserva' if pedido.tipo == 'nueva' else 'Pagar el saldo de la reserva ' ~ pedido.id_reserva }}</h1>
+   <p>
+      {% if pedido.tipo == 'nueva' %}
+         La reserva todavía no existe: se crea junto con el pago en una sola
+         transacción (<code>pkg_transacciones.sp_reservar_y_pagar</code>). Si el
+         banco rechaza el pago, la reserva queda guardada como pendiente.
+      {% else %}
+         El pago se registra con <code>pkg_transacciones.sp_registrar_pago</code>,
+         que bloquea la reserva mientras cobra para que nadie más cobre el mismo saldo.
+      {% endif %}
+   </p>
+</div>
+
+<div class="row g-4">
+   <div class="col-lg-5 order-lg-2">
+      <div class="checkout-resumen p-4">
+         <div class="titulo h5 mb-3">{{ pedido.alojamiento }}</div>
+         <dl class="mb-2">
+            <dt>Municipio</dt><dd>{{ pedido.municipio }}</dd>
+            <dt>Huésped</dt><dd>{{ pedido.cliente }}</dd>
+            <dt>Estadía</dt><dd>{{ pedido.checkin }} a {{ pedido.checkout }} ({{ pedido.noches }} noche{{ 's' if pedido.noches != 1 }}, {{ pedido.huespedes }} huésped{{ 'es' if pedido.huespedes != 1 }})</dd>
+         </dl>
+         {% if pedido.tipo == 'nueva' %}
+            {% for l in pedido.lineas %}
+            <div class="linea"><span>Habitación {{ l.numero }} · {{ l.categoria|capitalize }}</span><span>{{ l.valor|pesos }}</span></div>
+            {% endfor %}
+         {% else %}
+            <div class="linea"><span>Habitaciones</span><span>{{ pedido.habitaciones }}</span></div>
+            <div class="linea"><span>Valor de la reserva</span><span>{{ pedido.valor_total|pesos }}</span></div>
+            <div class="linea"><span>Ya pagado</span><span>{{ pedido.pagado|pesos }}</span></div>
+         {% endif %}
+         <div class="linea pt-3 align-items-end">
+            <span>{{ 'Total a pagar' if pedido.tipo == 'nueva' else 'Saldo pendiente' }}</span>
+            <span class="total">{{ pedido.total|pesos }}</span>
+         </div>
+      </div>
+   </div>
+
+   <div class="col-lg-7 order-lg-1">
+      <div class="card p-4">
+         <ul class="nav nav-pills metodos mb-4" role="tablist">
+            <li class="nav-item" role="presentation">
+               <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pane-tarjeta" type="button" role="tab" data-metodo="tarjeta">Tarjeta</button>
+            </li>
+            <li class="nav-item" role="presentation">
+               <button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-pse" type="button" role="tab" data-metodo="pse">PSE</button>
+            </li>
+         </ul>
+
+         <form method="post" action="{{ url_for('pagos.procesar') }}" id="form-pago" autocomplete="off">
+            <input type="hidden" name="metodo" id="metodo" value="tarjeta">
+            <div class="tab-content">
+               <div class="tab-pane fade show active" id="pane-tarjeta" role="tabpanel">
+                  <div class="tarjeta-visual mb-4" aria-hidden="true">
+                     <div class="d-flex justify-content-between"><span>TurismoUQ Pagos</span><span id="tv-marca"></span></div>
+                     <div class="numero" id="tv-numero">•••• •••• •••• ••••</div>
+                     <div class="d-flex justify-content-between">
+                        <div><small>Titular</small><div id="tv-titular">NOMBRE APELLIDO</div></div>
+                        <div class="text-end"><small>Vence</small><div id="tv-vence">MM/AA</div></div>
+                     </div>
+                  </div>
+                  <div class="row g-3">
+                     <div class="col-12">
+                        <label class="form-label" for="numero">Número de tarjeta</label>
+                        <input class="form-control form-control-lg" id="numero" name="numero" inputmode="numeric" placeholder="4242 4242 4242 4242" maxlength="23">
+                     </div>
+                     <div class="col-12">
+                        <label class="form-label" for="titular">Nombre del titular</label>
+                        <input class="form-control" id="titular" name="titular" placeholder="Como aparece en la tarjeta">
+                     </div>
+                     <div class="col-6 col-md-4">
+                        <label class="form-label" for="vencimiento">Vencimiento</label>
+                        <input class="form-control" id="vencimiento" name="vencimiento" placeholder="MM/AA" maxlength="5">
+                     </div>
+                     <div class="col-6 col-md-3">
+                        <label class="form-label" for="cvv">CVV</label>
+                        <input class="form-control" id="cvv" name="cvv" inputmode="numeric" placeholder="123" maxlength="4">
+                     </div>
+                     <div class="col-md-5">
+                        <label class="form-label" for="tipo_tarjeta">Tipo</label>
+                        <select class="form-select" id="tipo_tarjeta" name="tipo_tarjeta">
+                           <option value="credito">Crédito</option>
+                           <option value="debito">Débito</option>
+                        </select>
+                     </div>
+                  </div>
+               </div>
+
+               <div class="tab-pane fade" id="pane-pse" role="tabpanel">
+                  <div class="row g-3">
+                     <div class="col-12">
+                        <label class="form-label" for="banco">Banco</label>
+                        <select class="form-select form-select-lg" id="banco" name="banco">
+                           <option value="">Selecciona tu banco</option>
+                           {% for codigo, (nombre, _r, _m) in bancos.items() %}
+                           <option value="{{ codigo }}">{{ nombre }}</option>
+                           {% endfor %}
+                        </select>
+                     </div>
+                     <div class="col-12">
+                        <label class="form-label" for="titular_pse">Titular de la cuenta</label>
+                        <input class="form-control" id="titular_pse" name="titular_pse" value="{{ pedido.cliente }}">
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+            {% if pedido.tipo == 'saldo' %}
+            <div class="mt-3">
+               <label class="form-label" for="valor_abono">Valor a pagar</label>
+               <input class="form-control" id="valor_abono" name="valor_abono" type="number" min="1" step="1" max="{{ pedido.total|int }}" value="{{ pedido.total|int }}">
+               <div class="form-text">Puedes pagar el saldo completo o abonar una parte.</div>
+            </div>
+            {% endif %}
+
+            <button class="btn btn-cereza btn-lg w-100 mt-4" type="submit" id="btn-pagar">
+               Pagar {{ pedido.total|pesos }}
+            </button>
+            <a class="btn btn-link w-100 mt-1" href="{{ url_for('reserva_nueva') if pedido.tipo == 'nueva' else url_for('pagos.panel') }}">Volver sin pagar</a>
+         </form>
+      </div>
+
+      <div class="card modo-pruebas p-3 mt-3">
+         <h2 class="h6 mb-1">Modo de pruebas</h2>
+         <p class="small text-muted mb-2">
+            La pasarela no mueve dinero ni guarda el número de la tarjeta. Usa
+            estos datos (cualquier vencimiento futuro y cualquier CVV de 3
+            dígitos). Haz clic en una fila para llenar el formulario.
+         </p>
+         <table class="table table-sm small mb-0">
+            <thead><tr><th>Tarjeta de prueba</th><th>Respuesta del banco</th></tr></thead>
+            <tbody>
+            {% for numero, (respuesta, motivo) in tarjetas.items() %}
+               <tr class="prueba" data-numero="{{ numero }}" tabindex="0">
+                  <td class="font-monospace">{{ numero[:4] }} {{ numero[4:8] }} {{ numero[8:12] }} {{ numero[12:] }}</td>
+                  <td class="{{ 'text-success' if respuesta == 'APROBADO' else 'text-danger' }}">
+                     {{ 'Aprueba' if respuesta == 'APROBADO' else 'Rechaza: ' ~ motivo }}
+                  </td>
+               </tr>
+            {% endfor %}
+            </tbody>
+         </table>
+      </div>
+   </div>
+</div>
+
+<div class="procesando" id="procesando" role="status" aria-live="polite">
+   <div class="spinner-border" style="width:3rem;height:3rem" aria-hidden="true"></div>
+   <span>Consultando con el banco…</span>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const numero = $('numero');
+
+function formatear(v) {
+   return v.replace(/\D/g, '').slice(0, 19).replace(/(.{4})/g, '$1 ').trim();
+}
+function marca(v) {
+   v = v.replace(/\D/g, '');
+   if (v.startsWith('4')) return 'VISA';
+   if (/^5[1-5]/.test(v)) return 'MASTERCARD';
+   return '';
+}
+numero.addEventListener('input', () => {
+   numero.value = formatear(numero.value);
+   $('tv-numero').textContent = numero.value || '•••• •••• •••• ••••';
+   $('tv-marca').textContent = marca(numero.value);
+});
+$('titular').addEventListener('input', (e) => { $('tv-titular').textContent = e.target.value.toUpperCase() || 'NOMBRE APELLIDO'; });
+$('vencimiento').addEventListener('input', (e) => {
+   let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+   if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
+   e.target.value = v;
+   $('tv-vence').textContent = v || 'MM/AA';
+});
+
+document.querySelectorAll('.prueba').forEach((fila) => {
+   const llenar = () => {
+      const hoy = new Date();
+      numero.value = formatear(fila.dataset.numero);
+      numero.dispatchEvent(new Event('input'));
+      $('titular').value = '{{ pedido.cliente|e }}';
+      $('titular').dispatchEvent(new Event('input'));
+      $('vencimiento').value = '12/' + String((hoy.getFullYear() + 2) % 100).padStart(2, '0');
+      $('vencimiento').dispatchEvent(new Event('input'));
+      $('cvv').value = '123';
+      bootstrap.Tab.getOrCreateInstance(document.querySelector('[data-metodo="tarjeta"]')).show();
+   };
+   fila.addEventListener('click', llenar);
+   fila.addEventListener('keydown', (e) => { if (e.key === 'Enter') llenar(); });
+});
+
+const abono = $('valor_abono');
+if (abono) {
+   abono.addEventListener('input', () => {
+      const v = Math.max(0, Number(abono.value) || 0);
+      $('btn-pagar').textContent = 'Pagar $' + v.toLocaleString('es-CO', {maximumFractionDigits: 0});
+   });
+}
+
+document.querySelectorAll('[data-metodo]').forEach((b) => {
+   b.addEventListener('shown.bs.tab', () => { $('metodo').value = b.dataset.metodo; });
+});
+
+// Pausa breve mientras "responde el banco": hace visible el paso de la
+// pasarela en la demostración. El resultado lo decide el servidor.
+$('form-pago').addEventListener('submit', (e) => {
+   e.preventDefault();
+   $('btn-pagar').disabled = true;
+   $('procesando').classList.add('visible');
+   setTimeout(() => e.target.submit(), 1200);
+});
+</script>
+{% endblock %}

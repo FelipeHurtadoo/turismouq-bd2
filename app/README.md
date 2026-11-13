@@ -89,6 +89,8 @@ publicado por OTRO contenedor (`oracle-xe`) que no está en la misma red.
 | Liquidación mensual | la misma consulta del cursor explícito `c_liq` de `sp_liquidar_mes` |
 | 8 consultas de análisis | las mismas consultas de `sql/08_consultas_analisis.sql`, parametrizadas |
 | Auditoría de tarifas | `SELECT` sobre `AUDITORIA_TARIFA`, la tabla que llena `trg_tarifa_auditoria` |
+| **Nueva reserva → Continuar al pago** | Checkout de la pasarela simulada (`pasarela.py`); con su respuesta llama a `pkg_transacciones.sp_reservar_y_pagar` (`pagos.py`) |
+| **Pagos** | Reservas `PENDIENTE` con saldo y últimos cobros de la pasarela; **Cobrar** llama a `pkg_transacciones.sp_registrar_pago` |
 | **Entrega 3 → Transacciones** | `pkg_transacciones.sp_reservar_y_pagar` con un pago válido o inválido; botón "paso a paso" con los conteos después de cada `SAVEPOINT` / `ROLLBACK TO` |
 | **Entrega 3 → Concurrencia** | Dos conexiones reales (A y B) por la misma habitación + una tercera que consulta `V$SESSION`: sin bloqueo (`pkg_turismo.sp_crear_reserva`), con `FOR UPDATE` y con `NOWAIT` (`pkg_transacciones.sp_crear_reserva_segura`) |
 | **Entrega 3 → Índices** | `pkg_medicion.plan` y `pkg_medicion.medir` sobre Q1–Q5, antes y después; cuadro para medir cualquier `SELECT` en vivo |

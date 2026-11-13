@@ -9,6 +9,13 @@
 --                                sobre HABITACION (control de concurrencia)
 --   · sp_reservar_y_pagar      : reserva + pago ATÓMICOS, con SAVEPOINT y
 --                                rollback parcial si el pago falla
+--   · sp_registrar_pago        : pagar después (o abonar) una reserva que
+--                                quedó PENDIENTE, también con SAVEPOINT
+--
+-- Pasarela de pagos: la interfaz web (app/pasarela.py) simula la pasarela
+-- y le pasa a estos procedimientos su RESPUESTA ('APROBADO' / 'RECHAZADO')
+-- y su número de transacción. La decisión de qué se confirma y qué se
+-- deshace sigue viviendo aquí, dentro de la transacción de la base.
 --
 -- No reemplaza a PKG_TURISMO (Entrega 2): lo COMPONE. La lógica de
 -- disponibilidad, capacidad y tarifas sigue viviendo en un solo lugar
@@ -98,8 +105,13 @@ CREATE OR REPLACE PACKAGE pkg_transacciones AS
    -- parcial, no se propagan):
    --   -20010  valor de pago <= 0
    --   -20011  valor de pago mayor al total de la reserva
+   --   -20012  la pasarela de pagos rechazó la transacción
    -- Cualquier otro error del INSERT en PAGO (medio de pago inválido,
    -- referencia duplicada...) también produce el rollback parcial.
+   --
+   -- Pasarela: p_respuesta_pasarela es lo que respondió la pasarela
+   -- ('APROBADO' por defecto, para los llamadores que no usan pasarela) y
+   -- p_referencia su número de transacción, que queda en PAGO.REFERENCIA.
    -- ------------------------------------------------------------------
    PROCEDURE sp_reservar_y_pagar(
       p_id_cliente     IN  cliente.id_cliente%TYPE,
@@ -115,6 +127,39 @@ CREATE OR REPLACE PACKAGE pkg_transacciones AS
       p_canal          IN  reserva.canal%TYPE DEFAULT 'WEB',
       p_observaciones  IN  reserva.observaciones%TYPE DEFAULT NULL,
       p_espera_seg     IN  PLS_INTEGER DEFAULT NULL,
+      p_commit         IN  BOOLEAN DEFAULT TRUE,
+      p_respuesta_pasarela IN VARCHAR2 DEFAULT 'APROBADO',
+      p_referencia     IN  pago.referencia%TYPE DEFAULT NULL,
+      p_detalle_pasarela IN VARCHAR2 DEFAULT NULL
+   );
+
+   -- ------------------------------------------------------------------
+   -- sp_registrar_pago: registra un pago (total o abono) sobre una reserva
+   -- que ya existe; el caso típico es la reserva que quedó PENDIENTE porque
+   -- su primer pago fue rechazado.
+   --
+   --   SELECT ... FOR UPDATE sobre la RESERVA   (dos cajeros no pueden
+   --                                             cobrar el mismo saldo a la vez)
+   --   SAVEPOINT sp_pago
+   --     valida estado y saldo, consulta la respuesta de la pasarela,
+   --     INSERT INTO pago, y si el saldo llega a 0 -> CONFIRMADA
+   --   si algo falla -> ROLLBACK TO sp_pago: la reserva queda como estaba
+   --   COMMIT (salvo p_commit => FALSE)
+   --
+   -- p_resultado: 'PAGADA' (saldo en 0), 'ABONO' (queda saldo) o
+   -- 'RECHAZADO' (no se registró nada; el motivo va en p_mensaje).
+   -- Errores de uso que SÍ se propagan: -20013 reserva inexistente o
+   -- cancelada, -20020 alojamiento ajeno (ámbito del usuario).
+   -- ------------------------------------------------------------------
+   PROCEDURE sp_registrar_pago(
+      p_id_reserva     IN  reserva.id_reserva%TYPE,
+      p_valor_pago     IN  pago.valor%TYPE,
+      p_medio_pago     IN  pago.medio_pago%TYPE,
+      p_resultado      OUT VARCHAR2,
+      p_mensaje        OUT VARCHAR2,
+      p_respuesta_pasarela IN VARCHAR2 DEFAULT 'APROBADO',
+      p_referencia     IN  pago.referencia%TYPE DEFAULT NULL,
+      p_detalle_pasarela IN VARCHAR2 DEFAULT NULL,
       p_commit         IN  BOOLEAN DEFAULT TRUE
    );
 
@@ -309,7 +354,10 @@ CREATE OR REPLACE PACKAGE BODY pkg_transacciones AS
       p_canal          IN  reserva.canal%TYPE DEFAULT 'WEB',
       p_observaciones  IN  reserva.observaciones%TYPE DEFAULT NULL,
       p_espera_seg     IN  PLS_INTEGER DEFAULT NULL,
-      p_commit         IN  BOOLEAN DEFAULT TRUE
+      p_commit         IN  BOOLEAN DEFAULT TRUE,
+      p_respuesta_pasarela IN VARCHAR2 DEFAULT 'APROBADO',
+      p_referencia     IN  pago.referencia%TYPE DEFAULT NULL,
+      p_detalle_pasarela IN VARCHAR2 DEFAULT NULL
    ) IS
       v_total   reserva.valor_total%TYPE;
       v_id_pago pago.id_pago%TYPE;
@@ -357,6 +405,15 @@ CREATE OR REPLACE PACKAGE BODY pkg_transacciones AS
                ') supera el total de la reserva (' || v_total || ').');
          END IF;
 
+         -- La pasarela respondió que no (fondos insuficientes, tarjeta
+         -- bloqueada...): es exactamente el caso del rollback parcial.
+         IF NVL(p_respuesta_pasarela, 'RECHAZADO') <> 'APROBADO' THEN
+            RAISE_APPLICATION_ERROR(-20012,
+               'Pasarela: pago rechazado' ||
+               NVL2(p_detalle_pasarela, ' (' || p_detalle_pasarela || ')', '') ||
+               NVL2(p_referencia, ' · transacción ' || p_referencia, '') || '.');
+         END IF;
+
          -- El pago entra primero como fila, y DESPUÉS la reserva pasa a
          -- CONFIRMADA. Si cualquiera de los dos pasos falla, el ROLLBACK TO
          -- de abajo deshace ambos y deja la reserva exactamente como estaba
@@ -365,7 +422,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_transacciones AS
          INSERT INTO pago (id_pago, id_reserva, fecha_pago, valor, medio_pago,
                            estado, referencia)
          VALUES (v_id_pago, p_id_reserva, SYSDATE, p_valor_pago, p_medio_pago,
-                 'APROBADO', 'TX-' || p_id_reserva || '-' || v_id_pago);
+                 'APROBADO', NVL(p_referencia, 'TX-' || p_id_reserva || '-' || v_id_pago));
 
          UPDATE reserva SET estado = 'CONFIRMADA' WHERE id_reserva = p_id_reserva;
 
@@ -392,6 +449,99 @@ CREATE OR REPLACE PACKAGE BODY pkg_transacciones AS
          COMMIT;
       END IF;
    END sp_reservar_y_pagar;
+
+   -- ==================================================================
+   PROCEDURE sp_registrar_pago(
+      p_id_reserva     IN  reserva.id_reserva%TYPE,
+      p_valor_pago     IN  pago.valor%TYPE,
+      p_medio_pago     IN  pago.medio_pago%TYPE,
+      p_resultado      OUT VARCHAR2,
+      p_mensaje        OUT VARCHAR2,
+      p_respuesta_pasarela IN VARCHAR2 DEFAULT 'APROBADO',
+      p_referencia     IN  pago.referencia%TYPE DEFAULT NULL,
+      p_detalle_pasarela IN VARCHAR2 DEFAULT NULL,
+      p_commit         IN  BOOLEAN DEFAULT TRUE
+   ) IS
+      v_aloj    reserva.id_alojamiento%TYPE;
+      v_estado  reserva.estado%TYPE;
+      v_total   reserva.valor_total%TYPE;
+      v_pagado  NUMBER;
+      v_saldo   NUMBER;
+      v_id_pago pago.id_pago%TYPE;
+   BEGIN
+      -- Bloqueo de la reserva ANTES de calcular el saldo: si dos cajeros
+      -- (o dos pestañas) cobran a la vez, el segundo espera y luego ve el
+      -- pago del primero. Sin esto, ambos verían el mismo saldo y la
+      -- reserva quedaría pagada dos veces: la misma carrera de la FASE 3.
+      BEGIN
+         SELECT id_alojamiento, estado, valor_total
+           INTO v_aloj, v_estado, v_total
+           FROM reserva
+          WHERE id_reserva = p_id_reserva
+            FOR UPDATE;
+      EXCEPTION
+         WHEN NO_DATA_FOUND THEN
+            RAISE_APPLICATION_ERROR(-20013,
+               'sp_registrar_pago: la reserva ' || p_id_reserva || ' no existe.');
+      END;
+
+      verificar_ambito(v_aloj);
+
+      IF v_estado IN ('CANCELADA', 'NO_SHOW') THEN
+         RAISE_APPLICATION_ERROR(-20013,
+            'sp_registrar_pago: la reserva ' || p_id_reserva || ' está ' || v_estado ||
+            ' y no admite pagos.');
+      END IF;
+
+      SAVEPOINT sp_pago;
+      BEGIN
+         SELECT NVL(SUM(valor), 0) INTO v_pagado
+           FROM pago
+          WHERE id_reserva = p_id_reserva AND estado = 'APROBADO';
+         v_saldo := v_total - v_pagado;
+
+         IF p_valor_pago IS NULL OR p_valor_pago <= 0 THEN
+            RAISE_APPLICATION_ERROR(-20010,
+               'el valor del pago debe ser mayor que cero.');
+         END IF;
+         IF p_valor_pago > v_saldo THEN
+            RAISE_APPLICATION_ERROR(-20011,
+               'el pago (' || p_valor_pago || ') supera el saldo pendiente (' || v_saldo || ').');
+         END IF;
+         IF NVL(p_respuesta_pasarela, 'RECHAZADO') <> 'APROBADO' THEN
+            RAISE_APPLICATION_ERROR(-20012,
+               'Pasarela: pago rechazado' ||
+               NVL2(p_detalle_pasarela, ' (' || p_detalle_pasarela || ')', '') ||
+               NVL2(p_referencia, ' · transacción ' || p_referencia, '') || '.');
+         END IF;
+
+         v_id_pago := seq_pago.NEXTVAL;
+         INSERT INTO pago (id_pago, id_reserva, fecha_pago, valor, medio_pago,
+                           estado, referencia)
+         VALUES (v_id_pago, p_id_reserva, SYSDATE, p_valor_pago, p_medio_pago,
+                 'APROBADO', NVL(p_referencia, 'TX-' || p_id_reserva || '-' || v_id_pago));
+
+         IF p_valor_pago = v_saldo THEN
+            UPDATE reserva SET estado = 'CONFIRMADA'
+             WHERE id_reserva = p_id_reserva AND estado = 'PENDIENTE';
+            p_resultado := 'PAGADA';
+            p_mensaje   := 'Saldo cubierto. Reserva confirmada.';
+         ELSE
+            p_resultado := 'ABONO';
+            p_mensaje   := 'Abono registrado. Saldo pendiente: ' || (v_saldo - p_valor_pago) || '.';
+         END IF;
+      EXCEPTION
+         WHEN OTHERS THEN
+            -- Nada del intento queda grabado; la reserva sigue igual.
+            ROLLBACK TO SAVEPOINT sp_pago;
+            p_resultado := 'RECHAZADO';
+            p_mensaje   := SUBSTR(SQLERRM, 1, 300);
+      END;
+
+      IF p_commit THEN
+         COMMIT;
+      END IF;
+   END sp_registrar_pago;
 
 END pkg_transacciones;
 /

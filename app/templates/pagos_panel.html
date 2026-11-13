@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Pagos · TurismoUQ{% endblock %}
+{% block content %}
+<div class="encabezado d-flex flex-wrap justify-content-between align-items-end gap-3">
+   <div>
+      <h1 class="h3 mb-1">Pagos</h1>
+      <p>
+         Reservas que esperan pago y los últimos cobros hechos con la pasarela
+         TurismoUQ Pagos (modo de pruebas). Cobrar llama a
+         <code>pkg_transacciones.sp_registrar_pago</code>.
+      </p>
+   </div>
+   <a class="btn btn-success" href="{{ url_for('reserva_nueva') }}">Reservar y pagar</a>
+</div>
+
+<div class="row g-4">
+   <div class="col-xl-7">
+      <h2 class="h5">Reservas pendientes de pago</h2>
+      <div class="tabla-scroll">
+         <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Reserva</th><th>Huésped</th><th>Alojamiento</th><th>Llegada</th><th class="text-end">Saldo</th><th></th></tr></thead>
+            <tbody>
+            {% for id_res, cliente, aloj, ci, co, total, saldo in pendientes %}
+               <tr>
+                  <td>{{ id_res }}</td>
+                  <td>{{ cliente }}</td>
+                  <td>{{ aloj }}</td>
+                  <td>{{ ci|celda }}</td>
+                  <td class="text-end fw-semibold">{{ saldo|pesos }}</td>
+                  <td class="text-end"><a class="btn btn-sm btn-cereza" href="{{ url_for('pagos.pagar_saldo', id_reserva=id_res) }}">Cobrar</a></td>
+               </tr>
+            {% else %}
+               <tr><td colspan="6" class="text-center text-muted py-4">No hay reservas pendientes de pago.</td></tr>
+            {% endfor %}
+            </tbody>
+         </table>
+      </div>
+      <p class="small text-muted mt-2">Se muestran las 25 más recientes.</p>
+   </div>
+
+   <div class="col-xl-5">
+      <h2 class="h5">Últimos cobros por la pasarela</h2>
+      <div class="tabla-scroll">
+         <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Reserva</th><th>Valor</th><th>Medio</th><th>Transacción</th></tr></thead>
+            <tbody>
+            {% for id_pago, id_res, fecha, valor, medio, ref, estado in recientes %}
+               <tr>
+                  <td>{{ id_res }} <span class="badge {{ 'bg-success' if estado == 'CONFIRMADA' else 'bg-warning text-dark' }}">{{ estado|lower }}</span></td>
+                  <td>{{ valor|pesos }}</td>
+                  <td class="small">{{ medio|replace('_', ' ')|lower }}</td>
+                  <td class="font-monospace small">{{ ref }}</td>
+               </tr>
+            {% else %}
+               <tr><td colspan="4" class="text-center text-muted py-4">Todavía no hay cobros por la pasarela. Haz una reserva y págala.</td></tr>
+            {% endfor %}
+            </tbody>
+         </table>
+      </div>
+   </div>
+</div>
+{% endblock %}

@@ -396,7 +396,7 @@ END;
 -- ahorra CPU, porque no evalúa TRUNC sobre las 25.000 filas. Pero con los
 -- bloques en disco y no en caché, esas ~220 lecturas de un bloque cada una
 -- serían más lentas que ~250 bloques leídos en ráfagas; por eso el modelo
--- de costo (211 contra 69) lo descarta. Conclusión: una buena selectividad
+-- de costo (212 contra 71) lo descarta. Conclusión: una buena selectividad
 -- no basta; si las filas están dispersas, el índice casi no ahorra trabajo.
 -- =====================================================================
 PROMPT

@@ -1,99 +1,107 @@
 {% extends "base.html" %}
+{% from "_paisaje.html" import paisaje %}
 {% block title %}TurismoUQ · Inicio{% endblock %}
+
+{% block portada %}
+<section class="portada">
+   <div class="container contenido">
+      <h1>Reservas turísticas del Quindío</h1>
+      <p>
+         Fincas cafeteras, hoteles, glampings y hostales de los 12 municipios.
+         Cada acción de esta interfaz la resuelve la base de datos Oracle:
+         los paquetes PL/SQL, los disparadores y las vistas del proyecto.
+      </p>
+      <div class="d-flex flex-wrap gap-2 mt-3">
+         <a href="{{ url_for('reserva_nueva') }}" class="btn btn-success btn-lg">Nueva reserva</a>
+         <a href="{{ url_for('pagos.panel') }}" class="btn btn-outline-success btn-lg">Cobrar reservas pendientes</a>
+      </div>
+   </div>
+   {{ paisaje() }}
+</section>
+{% endblock %}
+
 {% block content %}
-<h1 class="mb-1">TurismoUQ</h1>
-<p class="text-muted mb-4">
-   Interfaz administrativa que llama directamente a <code>PKG_TURISMO</code>
-   (función, procedimiento y las vistas de análisis) sobre el mismo esquema
-   <code>TURISMO_UQ</code> que usan los scripts de <code>sql/</code>.
-</p>
+{% macro acceso(url, titulo, texto, destacado=False) -%}
+   <a class="acceso {{ 'destacado' if destacado }}" href="{{ url }}">
+      <strong>{{ titulo }}</strong>
+      <span>{{ texto }}</span>
+   </a>
+{%- endmacro %}
 
-<div class="row g-3">
-   <div class="col-md-4">
-      <div class="card card-dashboard">
-         <div class="card-body">
-            <h5 class="card-title">Nueva reserva</h5>
-            <p class="card-text text-muted">
-               Llama a <code>pkg_turismo.sp_crear_reserva</code>. Muestra las
-               excepciones de negocio (habitación no disponible, fechas
-               inválidas, capacidad excedida) tal como las lanza el paquete.
-            </p>
-            <a href="{{ url_for('reserva_nueva') }}" class="btn btn-success">Crear reserva</a>
+<section class="grupo">
+   <div class="row g-4">
+      <div class="col-lg-4">
+         <h2>Operación diaria</h2>
+         <p class="intro">Lo que usa recepción y la administración de cada alojamiento.</p>
+      </div>
+      <div class="col-lg-8">
+         <div class="row g-2">
+            <div class="col-md-6">{{ acceso(url_for('reserva_nueva'), 'Nueva reserva', 'Elige cliente, fechas y habitaciones; el valor lo calcula fn_valor_estadia noche por noche.') }}</div>
+            <div class="col-md-6">{{ acceso(url_for('reservas_lista'), 'Reservas recientes', 'Las últimas 20 reservas registradas.') }}</div>
+            <div class="col-md-6">{{ acceso(url_for('liquidacion'), 'Liquidación mensual', 'Facturado, pagado y saldo de un alojamiento en un mes (cursor c_liq).') }}</div>
+            <div class="col-md-6">{{ acceso(url_for('tarifas'), 'Tarifas', 'Cambia un precio y el disparador lo deja en la auditoría.') }}</div>
          </div>
       </div>
    </div>
-   <div class="col-md-4">
-      <div class="card card-dashboard">
-         <div class="card-body">
-            <h5 class="card-title">Liquidación mensual</h5>
-            <p class="card-text text-muted">
-               Mismo cálculo del cursor explícito <code>c_liq</code> de
-               <code>sp_liquidar_mes</code>: reservas, facturado, pagado y
-               saldo pendiente de un alojamiento en un mes.
-            </p>
-            <a href="{{ url_for('liquidacion') }}" class="btn btn-outline-success">Ver liquidación</a>
-         </div>
-      </div>
-   </div>
-   <div class="col-md-4">
-      <div class="card card-dashboard">
-         <div class="card-body">
-            <h5 class="card-title">Auditoría de tarifas</h5>
-            <p class="card-text text-muted">
-               Lo que registra <code>trg_tarifa_auditoria</code> (disparador
-               de sentencia) cada vez que cambia una fila de <code>TARIFA</code>.
-            </p>
-            <a href="{{ url_for('auditoria') }}" class="btn btn-outline-success">Ver auditoría</a>
-         </div>
-      </div>
-   </div>
-</div>
+</section>
 
-<h2 class="h4 mt-5 mb-3">Transacciones, índices y seguridad (Entrega 3)</h2>
-<div class="row g-3">
-   {% set e3 = [
-      ('e3.transacciones', 'Transacciones', 'SAVEPOINT', 'Reserva + pago atómicos. Rollback parcial cuando el pago falla, total cuando falla la reserva.'),
-      ('e3.concurrencia', 'Concurrencia', 'FOR UPDATE', 'Dos sesiones reales por la misma habitación: doble venta sin bloqueo, espera serializada con él.'),
-      ('e3.indices', 'Índices', 'Plan de ejecución', 'Lecturas lógicas antes y después: compuesto, basado en función, FK y el caso que no ayuda.'),
-      ('e3.seguridad', 'Seguridad', 'Roles y perfil', 'Conectarse como recepción, administrador, gerente o auditor y ver qué permite Oracle.'),
-   ] %}
-   {% for ruta, titulo, tecnica, texto in e3 %}
-   <div class="col-md-3">
-      <div class="card card-dashboard">
-         <div class="card-body">
-            <span class="badge bg-success-subtle text-success-emphasis mb-2">{{ tecnica }}</span>
-            <h6 class="card-title">{{ titulo }}</h6>
-            <p class="card-text small text-muted">{{ texto }}</p>
-            <a href="{{ url_for(ruta) }}" class="stretched-link"></a>
+<section class="grupo">
+   <div class="row g-4">
+      <div class="col-lg-4">
+         <h2>Pagos en línea</h2>
+         <p class="intro">Pasarela TurismoUQ Pagos, en modo de pruebas: solo acepta tarjetas y bancos de prueba.</p>
+      </div>
+      <div class="col-lg-8">
+         <div class="row g-2">
+            <div class="col-md-6">{{ acceso(url_for('pagos.panel'), 'Cobrar reservas pendientes', 'Reservas cuyo pago fue rechazado: págalas o abona desde aquí.', True) }}</div>
+            <div class="col-md-6">{{ acceso(url_for('reserva_nueva'), 'Reservar y pagar', 'Reserva y pago en una sola transacción: si el banco rechaza, la reserva queda pendiente.') }}</div>
          </div>
       </div>
    </div>
-   {% endfor %}
-</div>
+</section>
 
-<h2 class="h4 mt-5 mb-3">Consultas de análisis (Entrega 1)</h2>
-<div class="row g-3">
-   {% set consultas = [
-      ('ocupacion', '1. Ocupación por municipio y mes', 'PIVOT'),
-      ('ingresos', '2. Ingresos por municipio/tipo/temporada', 'ROLLUP + GROUPING'),
-      ('top3', '3. Top 3 alojamientos por municipio', 'RANK'),
-      ('variacion', '4. Variación de ingresos mes a mes', 'LAG'),
-      ('rango-fechas', '5. Ingresos en un rango de fechas', 'Bind variables'),
-      ('ocupacion-mv', '6. Ocupación mensual', 'Vista materializada'),
-      ('calificaciones', '7. Calificaciones por municipio', 'UNPIVOT'),
-      ('adr-revpar', '8. ADR, RevPAR y estacionalidad', 'Consulta libre'),
-   ] %}
-   {% for slug, titulo, tecnica in consultas %}
-   <div class="col-md-3">
-      <div class="card card-dashboard">
-         <div class="card-body">
-            <span class="badge bg-success-subtle text-success-emphasis mb-2">{{ tecnica }}</span>
-            <h6 class="card-title">{{ titulo }}</h6>
-            <a href="{{ url_for('consulta_rango_fechas') if slug == 'rango-fechas' else url_for('consulta', slug=slug) }}"
-               class="stretched-link"></a>
+<section class="grupo">
+   <div class="row g-4">
+      <div class="col-lg-4">
+         <h2>Transacciones, índices y seguridad</h2>
+         <p class="intro">Entrega 3, con los procedimientos y las sesiones reales de Oracle.</p>
+      </div>
+      <div class="col-lg-8">
+         <div class="row g-2">
+            <div class="col-md-6">{{ acceso(url_for('e3.transacciones'), 'Transacciones y savepoints', 'Rollback parcial cuando falla el pago, total cuando falla la reserva.') }}</div>
+            <div class="col-md-6">{{ acceso(url_for('e3.concurrencia'), 'Concurrencia y bloqueos', 'Dos sesiones por la misma habitación, antes y después de FOR UPDATE.') }}</div>
+            <div class="col-md-6">{{ acceso(url_for('e3.indices'), 'Índices y planes de ejecución', 'Lecturas lógicas antes y después, y el caso donde el índice no ayuda.') }}</div>
+            <div class="col-md-6">{{ acceso(url_for('e3.seguridad'), 'Roles, vistas y perfil', 'Conéctate como recepción, administración, gerencia o auditoría.') }}</div>
          </div>
       </div>
    </div>
-   {% endfor %}
-</div>
+</section>
+
+<section class="grupo">
+   <div class="row g-4">
+      <div class="col-lg-4">
+         <h2>Análisis</h2>
+         <p class="intro">Las ocho consultas de la Entrega 1.</p>
+      </div>
+      <div class="col-lg-8">
+         <div class="row g-2">
+            {% set consultas = [
+               ('ocupacion', 'Ocupación por municipio y mes', 'PIVOT de noches vendidas sobre noches disponibles.'),
+               ('ingresos', 'Ingresos con subtotales', 'Municipio, tipo y temporada con ROLLUP y GROUPING.'),
+               ('top3', 'Top 3 por municipio', 'Los alojamientos de mayor ingreso, con RANK.'),
+               ('variacion', 'Variación mes a mes', 'Cada mes contra el anterior, con LAG.'),
+               ('rango-fechas', 'Ingresos en un rango de fechas', 'Consulta con variables de enlace.'),
+               ('ocupacion-mv', 'Ocupación mensual', 'Sobre la vista materializada.'),
+               ('calificaciones', 'Calificaciones de huéspedes', 'Las cinco dimensiones de reseña, con UNPIVOT.'),
+               ('adr-revpar', 'ADR, RevPAR y estacionalidad', 'Qué municipios rinden por precio o por ocupación.'),
+            ] %}
+            {% for slug, titulo, texto in consultas %}
+            <div class="col-md-6">
+               {{ acceso(url_for('consulta_rango_fechas') if slug == 'rango-fechas' else url_for('consulta', slug=slug), titulo, texto) }}
+            </div>
+            {% endfor %}
+         </div>
+      </div>
+   </div>
+</section>
 {% endblock %}

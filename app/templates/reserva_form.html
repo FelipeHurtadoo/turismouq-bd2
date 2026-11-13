@@ -1,16 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Nueva reserva · TurismoUQ{% endblock %}
 {% block content %}
-<h1 class="h3 mb-1">Nueva reserva</h1>
-<p class="text-muted">
-   Llama a <code>pkg_turismo.sp_crear_reserva</code>. Si la habitación no está
-   disponible, el checkout no es posterior al checkin, o la capacidad no
-   alcanza para los huéspedes, el paquete lanza la excepción propia
-   (<code>-20001</code>/<code>-20002</code>/<code>-20003</code>) y se muestra
-   abajo tal cual la devuelve Oracle.
-</p>
+<div class="encabezado">
+   <h1 class="h3 mb-1">Nueva reserva</h1>
+   <p>
+      <strong>Continuar al pago</strong> lleva a la pasarela: la reserva y el pago
+      se graban juntos con <code>pkg_transacciones.sp_reservar_y_pagar</code>.
+      <strong>Reservar sin pagar</strong> usa <code>pkg_turismo.sp_crear_reserva</code>
+      (Entrega 2). En ambos casos, si la habitación no está disponible, las fechas
+      no son válidas o no caben los huéspedes, se muestra el error tal como lo
+      devuelve Oracle (<code>-20001</code>, <code>-20002</code>, <code>-20003</code>).
+   </p>
+</div>
 
-<form method="post" class="row g-3" id="form-reserva">
+<form method="post" class="row g-3 card p-3 p-md-4 mx-0" id="form-reserva">
    <div class="col-md-6">
       <label class="form-label">Documento del cliente</label>
       <div class="input-group">
@@ -101,8 +104,9 @@
       <div id="valor-estimado" class="mt-2"></div>
    </div>
 
-   <div class="col-12">
-      <button type="submit" class="btn btn-success">Crear reserva</button>
+   <div class="col-12 d-flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-cereza btn-lg" formaction="{{ url_for('pagos.checkout_desde_reserva') }}">Continuar al pago</button>
+      <button type="submit" class="btn btn-outline-success btn-lg">Reservar sin pagar</button>
       <a href="{{ url_for('reservas_lista') }}" class="btn btn-link">Cancelar</a>
    </div>
 </form>

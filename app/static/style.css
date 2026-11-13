@@ -1,40 +1,289 @@
+/* =====================================================================
+   TurismoUQ · Paisaje Cultural Cafetero
+   Paleta tomada del Quindío: verde cordillera, hoja de café, cereza de
+   café (único acento), neblina de la mañana y azul de los balcones de
+   Salento. Una sola pieza llamativa: la silueta de montañas y palmas de
+   cera (templates/_paisaje.html). Todo lo demás, sobrio.
+   ===================================================================== */
+
+:root {
+   --cordillera: #1f3b2d;
+   --cafe: #3e7b4f;
+   --cafe-claro: #dfeadf;
+   --cereza: #b0283a;
+   --cereza-oscura: #8e1f2f;
+   --neblina: #eef2ec;
+   --tinta: #1c2420;
+   --tinta-suave: #56625b;
+   --balcon: #2f6e9e;
+   --linea: #d5ddd4;
+   --papel: #ffffff;
+
+   --radio-sm: 6px;
+   --radio: 10px;
+
+   /* Bootstrap: el verde "success" que usan todas las plantillas pasa a ser
+      el verde hoja de café, y "primary" el azul balcón. */
+   --bs-body-font-family: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+   --bs-body-color: var(--tinta);
+   --bs-body-bg: var(--neblina);
+   --bs-success: #3e7b4f;
+   --bs-success-rgb: 62, 123, 79;
+   --bs-primary: #2f6e9e;
+   --bs-primary-rgb: 47, 110, 158;
+   --bs-danger: #b0283a;
+   --bs-danger-rgb: 176, 40, 58;
+   --bs-link-color: #2f6e9e;
+   --bs-link-color-rgb: 47, 110, 158;
+   --bs-link-hover-color: #1f3b2d;
+   --bs-border-color: var(--linea);
+   --bs-border-radius: var(--radio-sm);
+   --bs-secondary-color: var(--tinta-suave);
+   --bs-code-color: #8e1f2f;
+}
+
 body {
-   background-color: #f6f8f6;
+   background: var(--neblina);
+   font-size: 0.97rem;
+   line-height: 1.55;
+   min-height: 100vh;
+   display: flex;
+   flex-direction: column;
 }
 
-.card-dashboard {
-   height: 100%;
-   border: none;
-   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-   transition: transform 0.15s ease;
+main { flex: 1; }
+
+/* ---------- Tipografía ---------- */
+h1, h2, h3, h4, h5, h6, .navbar-brand, .titulo {
+   font-family: "Bricolage Grotesque", "Figtree", sans-serif;
+   letter-spacing: -0.01em;
+   color: var(--cordillera);
+}
+h1, .h1 { font-weight: 700; font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem); line-height: 1.1; }
+h1.h3, .h3 { font-weight: 700; font-size: 1.65rem; }
+h2, .h4 { font-weight: 650; font-size: 1.3rem; }
+h5, h6 { font-weight: 650; }
+.text-muted { color: var(--tinta-suave) !important; }
+p.text-muted, .lead-text { max-width: 72ch; }
+code { font-size: 0.86em; background: #f6ece8; padding: 0.05em 0.3em; border-radius: 4px; }
+pre code { background: none; padding: 0; }
+
+/* ---------- Barra de navegación ---------- */
+.navbar.barra {
+   background: var(--cordillera);
+   padding-block: 0.55rem;
+}
+.barra .navbar-brand {
+   color: #fff;
+   font-weight: 800;
+   font-size: 1.35rem;
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+}
+.barra .navbar-brand svg { flex: none; }
+.barra .nav-link {
+   color: rgba(255, 255, 255, 0.8);
+   font-weight: 500;
+   border-radius: var(--radio-sm);
+   padding-inline: 0.75rem !important;
+}
+.barra .nav-link:hover,
+.barra .nav-link:focus-visible,
+.barra .nav-link.show { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.barra .nav-link.activo { color: #fff; box-shadow: inset 0 -2px 0 #c9d8b8; border-radius: 0; }
+.barra .btn-pagar-nav {
+   background: var(--cereza);
+   color: #fff;
+   border-radius: 999px;
+   padding: 0.35rem 1rem;
+   font-weight: 600;
+}
+.barra .btn-pagar-nav:hover { background: var(--cereza-oscura); color: #fff; }
+.dropdown-menu {
+   border: 1px solid var(--linea);
+   border-radius: var(--radio);
+   box-shadow: 0 12px 30px -12px rgba(31, 59, 45, 0.35);
+   padding: 0.4rem;
+}
+.dropdown-item { border-radius: var(--radio-sm); padding: 0.45rem 0.75rem; }
+.dropdown-item:active { background: var(--cafe); }
+.dropdown-header { color: var(--tinta-suave); font-weight: 600; }
+
+/* ---------- Botones ---------- */
+.btn { font-weight: 600; border-radius: var(--radio-sm); }
+.btn-success { --bs-btn-bg: var(--cafe); --bs-btn-border-color: var(--cafe);
+   --bs-btn-hover-bg: #346a43; --bs-btn-hover-border-color: #346a43;
+   --bs-btn-active-bg: #2c5a39; --bs-btn-disabled-bg: var(--cafe); --bs-btn-disabled-border-color: var(--cafe); }
+.btn-outline-success { --bs-btn-color: var(--cafe); --bs-btn-border-color: var(--cafe);
+   --bs-btn-hover-bg: var(--cafe); --bs-btn-hover-border-color: var(--cafe); --bs-btn-active-bg: var(--cafe); }
+.btn-danger, .btn-cereza { --bs-btn-bg: var(--cereza); --bs-btn-border-color: var(--cereza); --bs-btn-color: #fff;
+   --bs-btn-hover-bg: var(--cereza-oscura); --bs-btn-hover-border-color: var(--cereza-oscura); --bs-btn-hover-color: #fff;
+   --bs-btn-active-bg: var(--cereza-oscura); --bs-btn-disabled-bg: var(--cereza); --bs-btn-disabled-border-color: var(--cereza); }
+.btn-outline-danger { --bs-btn-color: var(--cereza); --bs-btn-border-color: var(--cereza);
+   --bs-btn-hover-bg: var(--cereza); --bs-btn-hover-border-color: var(--cereza); }
+.btn:focus-visible, .form-control:focus, .form-select:focus, .form-check-input:focus {
+   box-shadow: 0 0 0 3px rgba(47, 110, 158, 0.35);
+   border-color: var(--balcon);
 }
 
-.card-dashboard:hover {
-   transform: translateY(-3px);
-   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+/* ---------- Superficies ----------
+   Las tarjetas son planas y con borde: la jerarquía la dan los títulos y
+   el espacio, no las sombras. */
+.card, .card-dashboard {
+   background: var(--papel);
+   border: 1px solid var(--linea);
+   border-radius: var(--radio);
+   box-shadow: none;
 }
+.card-dashboard { height: 100%; transition: border-color 0.15s ease; }
+.card-dashboard:hover { border-color: var(--cafe); transform: none; box-shadow: none; }
+.card-header { background: transparent; border-bottom: 1px solid var(--linea); padding: 0.8rem 1rem; }
+.card-footer { background: #f7f9f6; }
+.badge { font-weight: 600; border-radius: 999px; }
+.bg-success-subtle { background-color: var(--cafe-claro) !important; }
+.text-success-emphasis { color: var(--cordillera) !important; }
+.alert { border-radius: var(--radio); border-width: 1px; }
+.alert-success { background: #e6f0e4; border-color: #c6dbc3; color: #1f3b2d; }
+.alert-danger { background: #f8e6e8; border-color: #ecc4ca; color: #6e1724; }
+.alert-info { background: #e5eff6; border-color: #c4d9e9; color: #1d4766; }
+.alert-warning { background: #fbf1dc; border-color: #ecd9aa; color: #5c4510; }
 
+/* ---------- Tablas ---------- */
+.table { --bs-table-bg: var(--papel); font-size: 0.9rem; }
+.table > thead th { font-weight: 600; color: var(--tinta-suave); white-space: nowrap; }
 table.table-reporte th {
    position: sticky;
    top: 0;
-   background-color: #198754;
+   background-color: var(--cordillera);
    color: #fff;
+   font-weight: 600;
+   z-index: 1;
 }
-
+.table-striped > tbody > tr:nth-of-type(odd) > * { --bs-table-bg-type: #f6f8f5; }
 .tabla-scroll {
    max-height: 70vh;
    overflow: auto;
+   border: 1px solid var(--linea);
+   border-radius: var(--radio);
+   background: var(--papel);
 }
+.tabla-scroll .table { margin-bottom: 0; }
 
-.resumen-liquidacion .valor {
-   font-size: 1.4rem;
+/* ---------- Formularios ---------- */
+.form-control, .form-select { border-radius: var(--radio-sm); border-color: #c7d1c6; background-color: #fff; }
+.form-control::placeholder { color: #9aa59e; }
+.form-label { font-weight: 600; color: var(--cordillera); font-size: 0.92rem; }
+
+/* ---------- Encabezado de página ---------- */
+.encabezado { margin-bottom: 1.5rem; }
+.encabezado p { color: var(--tinta-suave); max-width: 72ch; margin-bottom: 0; }
+.etiqueta-entrega {
+   display: inline-block;
+   font-size: 0.8rem;
    font-weight: 600;
+   color: var(--cafe);
+   background: var(--cafe-claro);
+   border-radius: 999px;
+   padding: 0.15rem 0.7rem;
+   margin-bottom: 0.5rem;
 }
 
-pre.plan {
-   font-size: 0.72rem;
-   line-height: 1.3;
-   max-height: 420px;
-   overflow: auto;
-   white-space: pre;
+/* ---------- Portada (paisaje) ---------- */
+.portada {
+   position: relative;
+   background: linear-gradient(180deg, #dce8de 0%, #eef2ec 70%);
+   overflow: hidden;
+}
+.portada .contenido {
+   position: relative;
+   z-index: 1;
+   padding: 3rem 0 9.5rem;
+}
+.portada h1 { font-size: clamp(2.4rem, 1.6rem + 3.2vw, 3.8rem); max-width: 16ch; }
+.portada p { font-size: 1.1rem; color: var(--tinta-suave); max-width: 52ch; }
+.paisaje {
+   position: absolute;
+   inset: auto 0 0 0;
+   width: 100%;
+   height: 190px;
+   display: block;
+}
+.portada.compacta .contenido { padding: 1.8rem 0 6.5rem; }
+.portada.compacta .paisaje { height: 120px; }
+.portada.compacta h1 { font-size: clamp(1.8rem, 1.4rem + 1.5vw, 2.4rem); }
+
+/* ---------- Inicio: grupos de accesos ---------- */
+.grupo { padding-block: 2rem; border-top: 1px solid var(--linea); }
+.grupo:first-of-type { border-top: 0; }
+.grupo h2 { margin-bottom: 0.25rem; }
+.grupo > .row > div > p.intro { color: var(--tinta-suave); max-width: 40ch; }
+.acceso {
+   display: block;
+   padding: 0.9rem 1rem;
+   border-radius: var(--radio);
+   color: inherit;
+   text-decoration: none;
+   border: 1px solid transparent;
+}
+.acceso:hover, .acceso:focus-visible { background: var(--papel); border-color: var(--linea); color: inherit; }
+.acceso strong { display: block; font-family: "Bricolage Grotesque", sans-serif; color: var(--cordillera); font-size: 1.05rem; }
+.acceso span { color: var(--tinta-suave); font-size: 0.9rem; }
+.acceso.destacado { background: var(--papel); border-color: var(--linea); border-left: 4px solid var(--cereza); }
+
+/* ---------- Pasarela ---------- */
+.checkout-resumen { background: var(--cordillera); color: #e8efe6; border-radius: var(--radio); }
+.checkout-resumen h2, .checkout-resumen .titulo { color: #fff; }
+.checkout-resumen dt { color: #b9cbb7; font-weight: 500; font-size: 0.85rem; }
+.checkout-resumen dd { color: #fff; margin-bottom: 0.7rem; }
+.checkout-resumen .total { font-family: "Bricolage Grotesque", sans-serif; font-size: 2.2rem; font-weight: 700; color: #fff; line-height: 1; }
+.checkout-resumen .linea { display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0; border-top: 1px solid rgba(255,255,255,0.12); font-size: 0.92rem; }
+.metodos .nav-link { color: var(--tinta-suave); font-weight: 600; border-radius: var(--radio-sm); }
+.metodos .nav-link.active { background: var(--cafe-claro); color: var(--cordillera); }
+.tarjeta-visual {
+   background: linear-gradient(135deg, #2f5d43 0%, #1f3b2d 60%);
+   color: #f2f6f0;
+   border-radius: 14px;
+   padding: 1.1rem 1.25rem;
+   aspect-ratio: 1.6;
+   max-width: 330px;
+   display: flex;
+   flex-direction: column;
+   justify-content: space-between;
+   font-family: "Bricolage Grotesque", sans-serif;
+}
+.tarjeta-visual .numero { font-size: 1.3rem; letter-spacing: 0.08em; }
+.tarjeta-visual small { color: #b9cbb7; font-family: "Figtree", sans-serif; }
+.prueba { cursor: pointer; }
+.prueba:hover td { background: #f1f6ef; }
+.modo-pruebas { border-left: 4px solid var(--balcon); }
+.procesando {
+   position: fixed;
+   inset: 0;
+   background: rgba(238, 242, 236, 0.92);
+   display: none;
+   align-items: center;
+   justify-content: center;
+   z-index: 2000;
+   flex-direction: column;
+   gap: 1rem;
+   font-weight: 600;
+   color: var(--cordillera);
+}
+.procesando.visible { display: flex; }
+.sello {
+   width: 64px; height: 64px; border-radius: 50%;
+   display: grid; place-items: center; font-size: 2rem; color: #fff;
+}
+.sello.ok { background: var(--cafe); }
+.sello.no { background: var(--cereza); }
+.sello.aviso { background: #b7862a; }
+
+/* ---------- Varios ---------- */
+pre.plan { font-size: 0.72rem; line-height: 1.3; max-height: 420px; overflow: auto; white-space: pre; }
+.resumen-liquidacion .valor { font-family: "Bricolage Grotesque", sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--cordillera); }
+.pie { color: var(--tinta-suave); font-size: 0.85rem; border-top: 1px solid var(--linea); background: #e6ece4; }
+
+@media (prefers-reduced-motion: reduce) {
+   * { transition: none !important; animation: none !important; }
 }

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Resultado del pago · TurismoUQ Pagos{% endblock %}
+{% block content %}
+{% set p = res.pasarela %}
+{% set aprobado = p.respuesta == 'APROBADO' and not res.error_reserva and res.resultado_bd in ('PAGADA', 'ABONO') %}
+
+<div class="row justify-content-center">
+   <div class="col-lg-8">
+      <div class="card p-4 p-md-5">
+         <div class="d-flex align-items-center gap-3 mb-3">
+            {% if res.error_reserva %}
+               <div class="sello aviso" aria-hidden="true">!</div>
+               <div>
+                  <h1 class="h3 mb-0">No se pudo hacer la reserva</h1>
+                  <p class="text-muted mb-0">No se cobró nada.</p>
+               </div>
+            {% elif aprobado %}
+               <div class="sello ok" aria-hidden="true">✓</div>
+               <div>
+                  <h1 class="h3 mb-0">{{ 'Pago aprobado' if res.resultado_bd == 'PAGADA' else 'Abono aprobado' }}</h1>
+                  <p class="text-muted mb-0">{{ res.valor|pesos }} con {{ p.descripcion }}</p>
+               </div>
+            {% else %}
+               <div class="sello no" aria-hidden="true">✕</div>
+               <div>
+                  <h1 class="h3 mb-0">Pago rechazado</h1>
+                  <p class="text-muted mb-0">El banco respondió: {{ p.motivo or 'pago no autorizado' }}.</p>
+               </div>
+            {% endif %}
+         </div>
+
+         <dl class="row small mb-4">
+            <dt class="col-sm-4">Transacción de la pasarela</dt><dd class="col-sm-8 font-monospace">{{ p.referencia }}</dd>
+            <dt class="col-sm-4">Medio de pago</dt><dd class="col-sm-8">{{ p.descripcion }}</dd>
+            {% if reserva %}
+            <dt class="col-sm-4">Reserva</dt><dd class="col-sm-8">{{ reserva.id_reserva }} · {{ reserva.alojamiento }} ({{ reserva.municipio }}) · habitación {{ reserva.habitaciones }}</dd>
+            <dt class="col-sm-4">Estadía</dt><dd class="col-sm-8">{{ reserva.fecha_checkin|celda }} a {{ reserva.fecha_checkout|celda }}</dd>
+            <dt class="col-sm-4">Estado de la reserva</dt>
+            <dd class="col-sm-8"><span class="badge {{ 'bg-success' if reserva.estado == 'CONFIRMADA' else 'bg-warning text-dark' }}">{{ reserva.estado }}</span></dd>
+            <dt class="col-sm-4">Pagado / total</dt><dd class="col-sm-8">{{ reserva.pagado|pesos }} de {{ reserva.valor_total|pesos }}</dd>
+            {% endif %}
+         </dl>
+
+         <div class="alert {{ 'alert-success' if aprobado else 'alert-warning' if not res.error_reserva else 'alert-danger' }} small">
+            <strong>Qué hizo la base de datos.</strong>
+            {% if res.error_reserva %}
+               La reserva falló dentro de <code>sp_reservar_y_pagar</code>, que hizo
+               <code>ROLLBACK TO sp_inicio</code>: no quedó ni reserva ni pago.
+               Motivo: <code>{{ res.error_reserva }}</code>
+            {% elif res.tipo == 'nueva' and aprobado %}
+               <code>sp_reservar_y_pagar</code> creó la reserva, pasó el
+               <code>SAVEPOINT sp_antes_pago</code>, insertó el pago y la confirmó;
+               todo quedó en un solo <code>COMMIT</code>.
+            {% elif res.tipo == 'nueva' %}
+               <code>sp_reservar_y_pagar</code> creó la reserva y, al recibir el
+               rechazo, hizo <code>ROLLBACK TO sp_antes_pago</code>: se deshizo solo
+               el pago (rollback parcial). La reserva quedó <strong>pendiente</strong>
+               y la habitación apartada hasta que se pague.
+            {% elif aprobado %}
+               <code>sp_registrar_pago</code> bloqueó la reserva con
+               <code>FOR UPDATE</code>, insertó el pago y {{ 'la confirmó porque el saldo llegó a cero' if res.resultado_bd == 'PAGADA' else 'dejó el saldo restante pendiente' }}.
+               {{ res.mensaje_bd }}
+            {% else %}
+               <code>sp_registrar_pago</code> hizo <code>ROLLBACK TO sp_pago</code>:
+               no quedó ningún pago y la reserva sigue igual. {{ res.mensaje_bd }}
+            {% endif %}
+         </div>
+
+         {% if pagos %}
+         <h2 class="h6 mt-4">Pagos de esta reserva en la tabla PAGO</h2>
+         <table class="table table-sm small">
+            <thead><tr><th>Pago</th><th>Fecha</th><th>Valor</th><th>Medio</th><th>Estado</th><th>Referencia</th></tr></thead>
+            <tbody>
+            {% for id_pago, fecha, valor, medio, estado, ref in pagos %}
+               <tr><td>{{ id_pago }}</td><td>{{ fecha|celda }}</td><td>{{ valor|pesos }}</td>
+                   <td>{{ medio|replace('_', ' ')|lower }}</td><td>{{ estado|lower }}</td><td class="font-monospace">{{ ref }}</td></tr>
+            {% endfor %}
+            </tbody>
+         </table>
+         {% endif %}
+
+         <div class="d-flex flex-wrap gap-2 mt-3">
+            {% if reserva and reserva.estado == 'PENDIENTE' and reserva.pagado == 0 %}
+               <a class="btn btn-cereza" href="{{ url_for('pagos.pagar_saldo', id_reserva=reserva.id_reserva) }}">Intentar el pago de nuevo</a>
+            {% elif reserva and reserva.valor_total > reserva.pagado %}
+               <a class="btn btn-cereza" href="{{ url_for('pagos.pagar_saldo', id_reserva=reserva.id_reserva) }}">Pagar el saldo restante</a>
+            {% endif %}
+            <a class="btn btn-outline-success" href="{{ url_for('pagos.panel') }}">Ir a pagos</a>
+            <a class="btn btn-link" href="{{ url_for('reserva_nueva') }}">Hacer otra reserva</a>
+         </div>
+      </div>
+   </div>
+</div>
+{% endblock %}

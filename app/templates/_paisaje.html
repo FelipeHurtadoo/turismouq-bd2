@@ -1,0 +1,18 @@
+{# Silueta del Valle de Cocora: tres capas de cordillera y palmas de cera.
+   Es la única pieza decorativa de la interfaz; se usa en la portada y en
+   la pasarela. Puramente visual, oculta para lectores de pantalla. #}
+{% macro paisaje() %}
+<svg class="paisaje" viewBox="0 0 1440 190" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+   <path d="M0 110 C 140 70, 260 60, 380 92 S 640 40, 820 70 S 1120 30, 1260 66 S 1400 80, 1440 64 L1440 190 L0 190 Z" fill="#b9cfb9"/>
+   <path d="M0 140 C 180 104, 300 118, 460 100 S 760 130, 930 104 S 1220 92, 1440 122 L1440 190 L0 190 Z" fill="#6f9a77"/>
+   <g fill="#2c5139">
+      <rect x="236" y="70" width="3" height="72"/>
+      <path d="M237 70 c -14 -2 -24 6 -30 12 c 10 -4 20 -6 30 -8 c -8 4 -16 12 -18 20 c 6 -8 12 -12 18 -14 c 6 2 12 6 18 14 c -2 -8 -10 -16 -18 -20 c 10 2 20 4 30 8 c -6 -6 -16 -14 -30 -12 Z"/>
+      <rect x="1104" y="52" width="3" height="84"/>
+      <path d="M1105 52 c -15 -2 -26 6 -32 13 c 11 -4 21 -6 32 -8 c -9 4 -17 13 -19 21 c 6 -8 13 -13 19 -15 c 6 2 13 7 19 15 c -2 -8 -10 -17 -19 -21 c 11 2 21 4 32 8 c -6 -7 -17 -15 -32 -13 Z"/>
+      <rect x="1166" y="80" width="2.5" height="56"/>
+      <path d="M1167 80 c -11 -2 -19 5 -24 10 c 8 -3 16 -5 24 -6 c -6 3 -12 9 -14 15 c 5 -6 9 -9 14 -11 c 5 2 9 5 14 11 c -2 -6 -8 -12 -14 -15 c 8 1 16 3 24 6 c -5 -5 -13 -12 -24 -10 Z"/>
+   </g>
+   <path d="M0 168 C 220 140, 420 160, 640 150 S 1040 132, 1240 152 S 1400 160, 1440 156 L1440 190 L0 190 Z" fill="#1f3b2d"/>
+</svg>
+{% endmacro %}

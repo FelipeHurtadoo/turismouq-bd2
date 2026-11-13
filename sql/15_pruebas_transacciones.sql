@@ -9,6 +9,8 @@
 --   3. Rollback TOTAL: la reserva falla, ROLLBACK TO sp_inicio no deja
 --      ni cabecera ni líneas ni pago.
 --   4. Anatomía del SAVEPOINT paso a paso, con SELECT intermedios.
+--   5. Pasarela de pagos: rechazo de la pasarela (-20012, rollback parcial)
+--      y pago posterior del saldo con sp_registrar_pago (abono + pago final).
 --
 -- No asume ids fijos: busca huecos libres con pkg_transacciones.sp_buscar_hueco.
 -- Re-ejecutable: al empezar borra las reservas de demostración anteriores
@@ -160,6 +162,52 @@ END;
 /
 
 
+PROMPT === 2.3 La pasarela de pagos rechaza la transacción (excepción propia -20012) ===
+DECLARE
+   v_habs    pkg_turismo.t_lista_habitaciones;
+   v_id_aloj NUMBER;
+   v_fecha   DATE;
+   v_id_cli  NUMBER;
+   v_id_res  NUMBER;
+   v_res     VARCHAR2(20);
+   v_valor   NUMBER;
+   v_estado  reserva.estado%TYPE;
+   v_pagos   PLS_INTEGER;
+BEGIN
+   pkg_transacciones.sp_buscar_hueco(2, v_habs(1), v_id_aloj, v_fecha);
+   SELECT MIN(id_cliente) INTO v_id_cli FROM cliente;
+   v_valor := pkg_turismo.fn_valor_estadia(v_habs(1), v_fecha, v_fecha + 2);
+
+   -- Así llama la interfaz web cuando la pasarela responde "fondos
+   -- insuficientes": el monto y el medio son válidos, pero la respuesta no.
+   pkg_transacciones.sp_reservar_y_pagar(
+      p_id_cliente         => v_id_cli,
+      p_id_alojamiento     => v_id_aloj,
+      p_fecha_checkin      => v_fecha,
+      p_fecha_checkout     => v_fecha + 2,
+      p_num_huespedes      => 1,
+      p_habitaciones       => v_habs,
+      p_valor_pago         => v_valor,
+      p_medio_pago         => 'TARJETA_CREDITO',
+      p_id_reserva         => v_id_res,
+      p_resultado          => v_res,
+      p_observaciones      => 'DEMO_E3 pasarela rechazada',
+      p_respuesta_pasarela => 'RECHAZADO',
+      p_referencia         => 'TUQ-DEMO-RECHAZO',
+      p_detalle_pasarela   => 'fondos insuficientes');
+
+   SELECT estado INTO v_estado FROM reserva WHERE id_reserva = v_id_res;
+   SELECT COUNT(*) INTO v_pagos FROM pago WHERE id_reserva = v_id_res;
+
+   DBMS_OUTPUT.PUT_LINE('Reserva ' || v_id_res || ' · resultado = ' || v_res ||
+                        ' · estado = ' || v_estado || ' · pagos = ' || v_pagos);
+   DBMS_OUTPUT.PUT_LINE(CASE WHEN v_estado = 'PENDIENTE' AND v_pagos = 0
+                             THEN '  OK: el rechazo de la pasarela produjo el rollback parcial'
+                             ELSE '  FALLA' END);
+END;
+/
+
+
 PROMPT
 PROMPT ############ 3. Rollback TOTAL: la reserva falla, no queda nada ############
 
@@ -264,6 +312,46 @@ BEGIN
    -- La transacción sigue ABIERTA después de un ROLLBACK TO: un SAVEPOINT
    -- no termina la transacción, solo la recorta. Se cierra explícitamente.
    ROLLBACK;
+END;
+/
+
+
+PROMPT
+PROMPT ############ 5. Pagar después: sp_registrar_pago sobre la reserva PENDIENTE ############
+PROMPT ## La reserva del bloque 2.3 quedó PENDIENTE. El cliente vuelve y paga:
+PROMPT ## primero un abono, luego un intento rechazado, luego el saldo.
+
+DECLARE
+   v_id_res  NUMBER;
+   v_total   NUMBER;
+   v_res     VARCHAR2(20);
+   v_msg     VARCHAR2(300);
+   v_estado  reserva.estado%TYPE;
+   v_pagos   PLS_INTEGER;
+BEGIN
+   SELECT id_reserva, valor_total INTO v_id_res, v_total
+     FROM reserva WHERE observaciones LIKE 'DEMO_E3 pasarela rechazada%';
+
+   pkg_transacciones.sp_registrar_pago(v_id_res, 100000, 'PSE', v_res, v_msg,
+                                       p_referencia => 'TUQ-DEMO-ABONO');
+   DBMS_OUTPUT.PUT_LINE('5.1 Abono de 100000      -> ' || v_res || ' · ' || v_msg);
+
+   pkg_transacciones.sp_registrar_pago(v_id_res, v_total - 100000, 'TARJETA_DEBITO', v_res, v_msg,
+                                       p_respuesta_pasarela => 'RECHAZADO',
+                                       p_referencia => 'TUQ-DEMO-RECH2',
+                                       p_detalle_pasarela => 'tarjeta bloqueada');
+   DBMS_OUTPUT.PUT_LINE('5.2 Saldo, rechazado     -> ' || v_res || ' · ' || v_msg);
+
+   pkg_transacciones.sp_registrar_pago(v_id_res, v_total - 100000, 'TARJETA_CREDITO', v_res, v_msg,
+                                       p_referencia => 'TUQ-DEMO-SALDO');
+   DBMS_OUTPUT.PUT_LINE('5.3 Saldo, aprobado      -> ' || v_res || ' · ' || v_msg);
+
+   SELECT estado INTO v_estado FROM reserva WHERE id_reserva = v_id_res;
+   SELECT COUNT(*) INTO v_pagos FROM pago WHERE id_reserva = v_id_res;
+   DBMS_OUTPUT.PUT_LINE('Reserva ' || v_id_res || ' · estado = ' || v_estado || ' · pagos = ' || v_pagos);
+   DBMS_OUTPUT.PUT_LINE(CASE WHEN v_estado = 'CONFIRMADA' AND v_pagos = 2
+                             THEN 'OK: 2 pagos aprobados, el rechazado no dejó rastro y la reserva quedó CONFIRMADA'
+                             ELSE 'FALLA' END);
 END;
 /
 
