@@ -6,11 +6,12 @@ Dos orígenes, y la pantalla dice cuál es:
      que está compilado en Oracle en este momento (no una copia);
    · consultas, índices, vistas y perfil: se toman literalmente de los
      scripts de sql/, los mismos que se entregan en el repositorio.
+
+El ultimo quita sangria
 """
 
 import os
 import re
-
 import db
 
 CARPETA_SQL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sql")
