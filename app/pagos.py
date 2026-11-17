@@ -18,6 +18,7 @@ from datetime import datetime
 import oracledb
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
+import codigo
 import db
 import pasarela
 
@@ -324,4 +325,6 @@ def resultado():
         if filas:
             reserva = dict(zip([c.lower() for c in columnas], filas[0]))
         _, pagos = db.fetch_all(SQL_PAGOS_DE_RESERVA, {"id": res["id_reserva"]})
-    return render_template("pagos_resultado.html", res=res, reserva=reserva, pagos=pagos)
+    proc = "sp_reservar_y_pagar" if res.get("tipo") == "nueva" else "sp_registrar_pago"
+    return render_template("pagos_resultado.html", res=res, reserva=reserva, pagos=pagos,
+                           codigo_proc=codigo.procedimiento("PKG_TRANSACCIONES", proc))

@@ -1,0 +1,11 @@
+{# Panel plegable con código fuente. `c` = {titulo, origen, texto}
+   (ver codigo.py). Abierto=True lo muestra desplegado al cargar. #}
+{% macro panel_codigo(c, abierto=False) %}
+<details class="codigo" {{ 'open' if abierto }}>
+   <summary>
+      <span>Ver el código · <code>{{ c.titulo }}</code></span>
+      <span class="origen">{{ c.origen }}</span>
+   </summary>
+   <pre><code>{{ c.texto }}</code></pre>
+</details>
+{% endmacro %}

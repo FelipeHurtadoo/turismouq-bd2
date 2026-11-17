@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_codigo.html" import panel_codigo %}
 {% block title %}Resultado del pago · TurismoUQ Pagos{% endblock %}
 {% block content %}
 {% set p = res.pasarela %}
@@ -65,6 +66,8 @@
                no quedó ningún pago y la reserva sigue igual. {{ res.mensaje_bd }}
             {% endif %}
          </div>
+
+         {{ panel_codigo(codigo_proc) }}
 
          {% if pagos %}
          <h2 class="h6 mt-4">Pagos de esta reserva en la tabla PAGO</h2>

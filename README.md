@@ -50,7 +50,8 @@ turismouq-bd2/
 │   ├── 16c_concurrencia_monitor.sql     ← versión manual, tercera ventana
 │   ├── 17_indices.sql
 │   ├── 18_seguridad.sql
-│   └── 19_pruebas_seguridad.sql
+│   ├── 19_pruebas_seguridad.sql
+│   └── 20_consultas_sustentacion.sql    ← las 2 consultas pedidas en la sustentación
 ├── docs/
 │   ├── DOCUMENTACION_ENTREGA1.md
 │   ├── DOCUMENTACION_ENTREGA2.md
@@ -158,6 +159,7 @@ Cada script depende únicamente de objetos creados por los anteriores. Todos son
 | 17 | `sql/17_indices.sql` | `TURISMO_UQ` | 3 consultas lentas con plan y medición antes/después (índice compuesto, basado en función y FK), y el caso donde el índice **no** ayuda | ~10 s |
 | 18 | `sql/18_seguridad.sql` | `TURISMO_UQ` | Vistas de recepción y administración, 4 roles, perfil con límites de sesión y 5 usuarios de demostración | ~5 s |
 | 19 | `sql/19_pruebas_seguridad.sql` | se conecta como cada usuario (`CONNECT`) | Comprueba lo que cada rol puede y no puede hacer; al final vuelve a `TURISMO_UQ` | ~10 s |
+| 20 | `sql/20_consultas_sustentacion.sql` | `TURISMO_UQ` | Las dos consultas pedidas para la sustentación: habitación con más reservas en temporada alta, y clientes con los municipios que visitan | ~5 s |
 
 Los scripts 10 a 12 son la **Entrega 2** y solo agregan objetos de programa:
 ningún DDL de la Entrega 1 cambia. Se pueden re-ejecutar tantas veces como
@@ -378,6 +380,7 @@ hotel.
 | 4 roles con privilegios diferenciados | 18 · `rol_recepcion`, `rol_admin_alojamiento`, `rol_gerente`, `rol_auditor` |
 | Recepción accede solo por vistas | 18 · `v_recepcion_reservas`, `v_recepcion_habitaciones` · verificado en 19 |
 | Perfil con límites de sesión | 18 · `perfil_turismo_operativo` |
+| Consultas pedidas en la sustentación (temporada alta; clientes y municipios) | 20 · y en la interfaz: **Entrega 3 → Consultas de la sustentación** |
 
 El detalle de qué se agrega en cada entrega, y por qué el modelo actual lo
 soporta sin reconstrucción, está en `docs/ROADMAP_Y_SUSTENTACION.md`.
@@ -439,6 +442,10 @@ Cualquier vencimiento futuro y CVV de 3 dígitos. En PSE, *Banco del Café*
 aprueba y *Banco de la Palma* rechaza. La pasarela no acepta tarjetas reales
 ni guarda el número de la tarjeta.
 
+### Código en pantalla
+
+Cada pantalla de la Entrega 3 y el resultado del pago tienen un panel **Ver el código**. Los procedimientos se leen en vivo de `USER_SOURCE` (lo que está compilado en Oracle) y las consultas, índices, vistas y el perfil se toman literalmente de los scripts de `sql/`. Así, en la sustentación se ve en la misma pantalla el código de implementación y lo que observa el cliente.
+
 ### Menú Entrega 3
 
 La interfaz tiene además un menú **Entrega 3** con cuatro pantallas que llaman
@@ -449,6 +456,7 @@ a lo que crean los scripts 13 a 18:
 | Transacciones | Reserva + pago con `sp_reservar_y_pagar`: pago correcto, pago rechazado (rollback parcial: la reserva queda `PENDIENTE` sin pagos) y reserva inválida (rollback total). Botón "paso a paso" con los conteos después de cada `SAVEPOINT` |
 | Concurrencia | Abre dos sesiones reales por la misma habitación y una tercera que mira `V$SESSION`. Línea de tiempo de cada evento: doble reserva sin bloqueo; con `FOR UPDATE`, B bloqueada y luego rechazada; con `NOWAIT`, B rechazada al instante |
 | Índices | Plan de ejecución y lecturas lógicas antes/después de Q1–Q5, y un cuadro para medir cualquier `SELECT` que pida la docente |
+| Consultas de la sustentación | Ejecuta el texto exacto de `sql/20_consultas_sustentacion.sql` y muestra el resultado junto al código |
 | Seguridad | Se conecta como cada usuario de demostración y muestra qué permite y qué rechaza Oracle, lo que ve cada uno, el límite de 2 sesiones del perfil y la matriz de privilegios |
 
 Detalles en `app/README.md`.
@@ -489,6 +497,8 @@ Detalles en `app/README.md`.
    `sql/10_pkg_turismo.sql` y `sql/11_triggers_entrega2.sql`.
 
 ### 11.1 Entrega 3 en vivo
+
+**El guion completo del video, repartido entre los tres integrantes, está en `docs/GUION_VIDEO_ENTREGA3.md`.**
 
 **Desde la interfaz web**, lo más visual: *Nueva reserva → Continuar al pago*
 con la tarjeta `4000 0000 0000 0002` (rechazo → reserva pendiente, rollback

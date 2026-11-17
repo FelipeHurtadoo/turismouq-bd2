@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_codigo.html" import panel_codigo %}
 {% block title %}Índices · TurismoUQ{% endblock %}
 {% block content %}
 <span class="etiqueta-entrega">Entrega 3</span>
@@ -57,6 +58,12 @@
    <div class="card-header fw-semibold">{{ resultado.cfg.titulo }} · {{ resultado.cfg.tipo }}</div>
    <div class="card-body">
       <p class="small">{{ resultado.cfg.explicacion }}</p>
+      {{ panel_codigo({'titulo': 'índice ' ~ resultado.cfg.indice.split(' ')[0], 'origen': 'sql/17_indices.sql',
+                       'texto': resultado.cfg.ddl or resultado.cfg.crear ~ ';
+
+-- se borra al terminar (no ayuda):
+' ~ resultado.cfg.borrar ~ ';'}, True) }}
+      {{ panel_codigo({'titulo': 'consulta medida', 'origen': 'sql/17_indices.sql', 'texto': resultado.medidas[1].sql}) }}
       {{ tabla_medidas(resultado.medidas) }}
       <div class="row g-3">
          {% for m in resultado.medidas %}
@@ -66,12 +73,11 @@
          </div>
          {% endfor %}
       </div>
-      <details class="small"><summary>Ver la consulta medida</summary>
-         <pre class="bg-light border rounded p-2 mt-2">{{ resultado.medidas[1].sql }}</pre>
-      </details>
    </div>
 </div>
 {% endif %}
+
+{{ panel_codigo(codigo_medicion) }}
 
 <div class="card">
    <div class="card-header fw-semibold">Medir cualquier consulta (para la sustentación)</div>

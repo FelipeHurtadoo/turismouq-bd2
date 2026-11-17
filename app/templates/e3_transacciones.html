@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_codigo.html" import panel_codigo %}
 {% block title %}Transacciones · TurismoUQ{% endblock %}
 {% block content %}
 <span class="etiqueta-entrega">Entrega 3</span>
@@ -18,6 +19,8 @@
 SAVEPOINT sp_antes_pago
    INSERT pago + reserva CONFIRMADA               ── falla → ROLLBACK TO sp_antes_pago  (queda la reserva, PENDIENTE)
 COMMIT</pre>
+
+{% for c in codigos %}{{ panel_codigo(c) }}{% endfor %}
 
 <div class="row g-3 mb-4">
    {% for clave, esc in escenarios.items() %}

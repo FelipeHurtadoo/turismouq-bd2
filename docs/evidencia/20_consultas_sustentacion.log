@@ -1,0 +1,185 @@
+
+===== CONSULTA 1 · Habitación con más reservas en temporada alta =====
+
+    PUESTO ID_HABITACION HABITACION CATEGORIA		 ALOJAMIENTO
+---------- ------------- ---------- -------------------- ------------------------------------------------------------------------------------------------------------------------
+MUNICIPIO						     RESERVAS_ALTA NOCHES_ALTA INGRESO_ALTA
+------------------------------------------------------------ ------------- ----------- ------------
+	 1	     249 102	    ESTANDAR		 Finca La Cascada 38
+Buenavista								46	   107	   20901000
+
+	 2	     261 104	    ESTANDAR		 Refugio El Cafetal 40
+Armenia 								44	   121	   58980000
+
+         2            72 104        ESTANDAR             Cabañas Portal del Quindío 11
+Quimbaya								44	   118	   56975000
+
+	 2	     358 104	    ESTANDAR		 Reserva El Yarumo 54
+Montenegro								44	   109	   34167000
+
+         5            71 103        SUITE                Cabañas Portal del Quindío 11
+Quimbaya								43	   131	  121681000
+
+	 5	     356 102	    SUPERIOR		 Reserva El Yarumo 54
+Montenegro								43	   102	   41845000
+
+         7             3 103        ESTANDAR             Cabañas Alto Bonito 1
+Armenia 								42	   104	   49483000
+
+	 7	     153 102	    ESTANDAR		 Mirador Camino Real 23
+Salento 								42	    97	   37622000
+
+	 9	     237 101	    ESTANDAR		 Hostal La Aurora 36
+Armenia 								41	   114	   56484000
+
+	 9	     258 101	    ESTANDAR		 Refugio El Cafetal 40
+Armenia 								41	   112	   54707000
+
+         9           158 102        ESTANDAR             Mirador El Bambú 24
+Circasia								41	   106	   53941000
+
+	 9	     397 102	    ESTANDAR		 Hacienda Alto Bonito 60
+Circasia								41	   116	   50780000
+
+
+12 rows selected.
+
+
+===== CONSULTA 2a · Clientes que han visitado más municipios =====
+
+    PUESTO ID_CLIENTE CLIENTE															ORIGEN
+---------- ---------- ------------------------------------------------------------------------------------------------------------------------- ------------------------------------------------------------
+MUNICIPIOS_VISITADOS   RESERVAS
+-------------------- ----------
+MUNICIPIOS
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+         1       1037 Santiago Ospina Muñoz                                                                                                     Medellín
+		  11	     14
+Armenia (2), Calarcá (2), Filandia (2), Buenavista (1), Circasia (1), Córdoba (1), Génova (1), La Tebaida (1), Pijao (1), Quimbaya (1), Salento (1)
+
+	 2	 2321 Andrea Arango Quintero													Cali
+		  10	     16
+Filandia (5), Circasia (2), Génova (2), Armenia (1), Calarcá (1), Córdoba (1), Montenegro (1), Pijao (1), Quimbaya (1), Salento (1)
+
+         3        839 David Zuluaga Londoño                                                                                                     Medellín
+		  10	     15
+Calarcá (3), Filandia (3), Pijao (2), Armenia (1), Buenavista (1), Circasia (1), Córdoba (1), La Tebaida (1), Quimbaya (1), Salento (1)
+
+         4       1130 Iván Londoño Marín                                                                                                        Bucaramanga
+		  10	     14
+Salento (4), Montenegro (2), Armenia (1), Buenavista (1), Calarcá (1), Circasia (1), Filandia (1), Génova (1), Pijao (1), Quimbaya (1)
+
+         5        129 Laura Bedoya Zuluaga                                                                                                      Ibagué
+		  10	     13
+Filandia (3), Quimbaya (2), Armenia (1), Buenavista (1), Calarcá (1), Circasia (1), Córdoba (1), La Tebaida (1), Montenegro (1), Salento (1)
+
+         6        184 Andrea Osorio Arango                                                                                                      Medellín
+		  10	     12
+Filandia (2), Quimbaya (2), Armenia (1), Calarcá (1), Circasia (1), Córdoba (1), La Tebaida (1), Montenegro (1), Pijao (1), Salento (1)
+
+         6          1 Mateo Muñoz Gómez                                                                                                         Manizales
+		  10	     12
+Armenia (3), Buenavista (1), Calarcá (1), Circasia (1), Filandia (1), La Tebaida (1), Montenegro (1), Pijao (1), Quimbaya (1), Salento (1)
+
+         8       2462 Óscar Quintero Bedoya                                                                                                     Barranquilla
+		  10	     11
+Génova (2), Armenia (1), Buenavista (1), Calarcá (1), Circasia (1), Córdoba (1), Filandia (1), Pijao (1), Quimbaya (1), Salento (1)
+
+         9       2013 Óscar Cardona Gómez                                                                                                       Pereira
+		   9	     19
+Armenia (5), Montenegro (3), Buenavista (2), Circasia (2), Córdoba (2), Filandia (2), Pijao (1), Quimbaya (1), Salento (1)
+
+        10        560 Iván Arango Bedoya                                                                                                        Bucaramanga
+		   9	     18
+Filandia (5), Circasia (3), Montenegro (3), Calarcá (2), Armenia (1), Córdoba (1), Génova (1), Pijao (1), Salento (1)
+
+        11        308 Andrea Valencia Betancur                                                                                                  Medellín
+		   9	     16
+Filandia (4), Armenia (2), Buenavista (2), Génova (2), Quimbaya (2), Calarcá (1), Circasia (1), La Tebaida (1), Salento (1)
+
+        11       2916 David Ospina Ramírez                                                                                                      Bucaramanga
+		   9	     16
+Filandia (5), Circasia (2), Quimbaya (2), Salento (2), Armenia (1), Buenavista (1), Génova (1), La Tebaida (1), Montenegro (1)
+
+        13        988 Natalia Arango Londoño                                                                                                    Medellín
+		   9	     15
+Armenia (4), Salento (3), Filandia (2), Calarcá (1), Circasia (1), Córdoba (1), Montenegro (1), Pijao (1), Quimbaya (1)
+
+        13        665 Sebastián Ramírez Ospina                                                                                                  Bogotá
+		   9	     15
+Salento (4), Calarcá (2), Filandia (2), La Tebaida (2), Armenia (1), Buenavista (1), Circasia (1), Córdoba (1), Montenegro (1)
+
+        15       2899 Andrea Quintero Londoño                                                                                                   Manizales
+		   9	     14
+Armenia (3), Buenavista (2), Calarcá (2), Montenegro (2), Circasia (1), Filandia (1), La Tebaida (1), Quimbaya (1), Salento (1)
+
+        15       1754 Andrea Ramírez Salazar                                                                                                    Pereira
+		   9	     14
+Armenia (2), Buenavista (2), Calarcá (2), Circasia (2), Filandia (2), Montenegro (1), Pijao (1), Quimbaya (1), Salento (1)
+
+	15	 1770 Felipe Bedoya Ospina													Cartagena
+		   9	     14
+Armenia (4), Génova (3), Calarcá (1), Córdoba (1), Filandia (1), La Tebaida (1), Pijao (1), Quimbaya (1), Salento (1)
+
+        15       2819 Laura Quintero Hurtado                                                                                                    Bogotá
+		   9	     14
+Armenia (3), Buenavista (2), Montenegro (2), Salento (2), Calarcá (1), Córdoba (1), Filandia (1), La Tebaida (1), Quimbaya (1)
+
+        15       2896 María Ramírez Osorio                                                                                                      Bogotá
+		   9	     14
+Circasia (3), Armenia (2), Génova (2), Salento (2), Buenavista (1), Calarcá (1), La Tebaida (1), Montenegro (1), Pijao (1)
+
+
+19 rows selected.
+
+
+===== CONSULTA 2b · Cliente con más reservas en cada municipio =====
+
+MUNICIPIO						     CLIENTE															 RESERVAS      VALOR
+------------------------------------------------------------ ------------------------------------------------------------------------------------------------------------------------- ---------- ----------
+Armenia                                                      Luisa Gómez Londoño                                                                                                                8   10169800
+Buenavista						     Natalia Salazar Valencia														5    5972600
+Calarcá                                                      Andrea Valencia Salazar                                                                                                            5   13068700
+Calarcá                                                      Sebastián Londoño Salazar                                                                                                          5    8296300
+Calarcá                                                      Iván Gómez Betancur                                                                                                                5    7883700
+Calarcá                                                      Diana Muñoz Arango                                                                                                                 5    7169700
+Calarcá                                                      Luisa Restrepo Gómez                                                                                                               5    5863500
+Circasia                                                     Julián Cardona Salazar                                                                                                             7   10647100
+Córdoba                                                      María Grisales Zuluaga                                                                                                             3    5417200
+Córdoba                                                      Julián Osorio Marín                                                                                                                3    4348500
+Córdoba                                                      Catalina Bedoya Muñoz                                                                                                              3    4234200
+Córdoba                                                      Daniela Gómez Zuluaga                                                                                                              3    4153000
+Córdoba                                                      Paula Bedoya Valencia                                                                                                              3    4027900
+Córdoba                                                      Juan Grisales Grisales                                                                                                             3    3997500
+Córdoba                                                      Daniela Cardona Quintero                                                                                                           3    3006100
+Córdoba                                                      Carolina Hurtado Grisales                                                                                                          3    2790500
+Filandia						     Camilo Quintero Restrepo														7    9769000
+Filandia                                                     Sofía Betancur Marín                                                                                                               7    5870800
+Génova                                                       Sebastián Cardona Hurtado                                                                                                          3    5494800
+Génova                                                       Iván Hurtado Grisales                                                                                                              3    4091800
+Génova                                                       Felipe Bedoya Ospina                                                                                                               3    3983500
+Génova                                                       Paula Marín Salazar                                                                                                                3    3747600
+Génova                                                       María Ramírez Muñoz                                                                                                                3    3528900
+La Tebaida						     Andrea Quintero Restrepo														4    7051200
+Montenegro                                                   Natalia Salazar Muñoz                                                                                                              5    8718800
+Pijao                                                        Sofía Quintero Quintero                                                                                                            3    6760100
+Pijao                                                        Andrea Marín Osorio                                                                                                                3    2954200
+Quimbaya						     Camilo Betancur Quintero														4    7707100
+Quimbaya                                                     Sofía Betancur Hurtado                                                                                                             4    7478600
+Quimbaya						     Felipe Bedoya Valencia														4    7445400
+Quimbaya                                                     Juan Quintero Gómez                                                                                                                4    7364000
+Quimbaya						     Natalia Ospina Hurtado														4    5355600
+Quimbaya						     Felipe Bedoya Restrepo														4    4646400
+Quimbaya						     Luisa Arango Osorio														4    4469900
+Quimbaya                                                     Andrea Londoño Arango                                                                                                              4    4386800
+Quimbaya						     Carolina Ospina Zuluaga														4    4267000
+Quimbaya						     Mateo Bedoya Bedoya														4    3633900
+Quimbaya						     Santiago Valencia Quintero 													4    3544300
+Quimbaya                                                     Julián Betancur Restrepo                                                                                                           4    3391900
+Salento                                                      Carolina Gómez Hurtado                                                                                                             5    6942500
+Salento 						     Daniela Restrepo Osorio														5    6812500
+Salento                                                      Camilo Ramírez Restrepo                                                                                                            5    6792500
+Salento 						     Felipe Betancur Zuluaga														5    6111000
+
+43 rows selected.
+

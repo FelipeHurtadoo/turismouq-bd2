@@ -287,3 +287,37 @@ pre.plan { font-size: 0.72rem; line-height: 1.3; max-height: 420px; overflow: au
 @media (prefers-reduced-motion: reduce) {
    * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- Panel de código (para mostrar la implementación en pantalla) ---------- */
+details.codigo {
+   border: 1px solid var(--linea);
+   border-left: 4px solid var(--cafe);
+   border-radius: var(--radio);
+   background: var(--papel);
+   margin: 1rem 0;
+}
+details.codigo > summary {
+   cursor: pointer;
+   padding: 0.6rem 0.9rem;
+   display: flex;
+   flex-wrap: wrap;
+   justify-content: space-between;
+   gap: 0.5rem;
+   font-weight: 600;
+   color: var(--cordillera);
+}
+details.codigo > summary .origen { font-weight: 500; color: var(--tinta-suave); font-size: 0.85rem; }
+details.codigo[open] > summary { border-bottom: 1px solid var(--linea); }
+details.codigo pre {
+   margin: 0;
+   padding: 0.9rem 1rem;
+   max-height: 460px;
+   overflow: auto;
+   background: #1f2a24;
+   color: #e3ebe2;
+   font-size: 0.8rem;
+   line-height: 1.45;
+   border-radius: 0 0 var(--radio) var(--radio);
+}
+details.codigo pre code { color: inherit; background: none; }
+.explicacion { white-space: pre-line; color: var(--tinta-suave); max-width: 80ch; font-size: 0.92rem; }

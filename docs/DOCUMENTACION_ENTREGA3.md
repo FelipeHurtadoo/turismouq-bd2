@@ -33,6 +33,7 @@ paquetes, vistas, índices y objetos de seguridad.
 | 17 | `sql/17_indices.sql` | `TURISMO_UQ` | Paquete `PKG_MEDICION` + las consultas lentas con plan y medición antes/después |
 | 18 | `sql/18_seguridad.sql` | `TURISMO_UQ` | Vistas de ámbito, 4 roles, perfil y 5 usuarios de demostración |
 | 19 | `sql/19_pruebas_seguridad.sql` | (se conecta como cada usuario) | Comprueba lo que cada rol puede y no puede hacer |
+| 20 | `sql/20_consultas_sustentacion.sql` | `TURISMO_UQ` | Las dos consultas pedidas para la sustentación (FASE 5b) |
 
 ### Evidencia
 
@@ -644,6 +645,55 @@ didáctica: `ORA-00942` (*table or view does not exist*) cuando el usuario no
 tiene **ningún** privilegio sobre el objeto (Oracle ni siquiera le confirma
 que existe); `ORA-01031` (*insufficient privileges*) cuando lo ve pero le falta
 el privilegio para esa operación.
+
+---
+
+## FASE 5b — Consultas pedidas para la sustentación
+
+**1. ¿Cuál fue la habitación con más reservas en temporada alta?**
+
+La temporada no está en la reserva sino en el calendario (decisión de diseño B
+de la Entrega 1), así que "en temporada alta" se resuelve **noche por noche**:
+`V_NOCHE_VENDIDA` unida a `TEMPORADA` con `tipo = 'ALTA'`, y por habitación se
+cuentan las reservas distintas (`COUNT(DISTINCT id_reserva)`) que tuvieron al
+menos una noche en temporada alta. Una estadía del 13 al 18 de diciembre cuenta
+aunque solo sus últimas noches sean de temporada alta. Se ordena con `RANK` y
+no con `ROW_NUMBER` para que un empate en el primer lugar muestre todas las
+habitaciones empatadas.
+
+Resultado en la base cargada (`docs/evidencia/20_consultas_sustentacion.log`):
+la **habitación 102 de Finca La Cascada 38 (Buenavista)**, con **46 reservas**
+en temporada alta (107 noches). Detrás, tres habitaciones empatadas con 44.
+
+**2. Listado de clientes con los municipios.** La pregunta admite dos
+lecturas y se resolvieron las dos:
+
+- **2a · Clientes que han visitado más municipios**, con la lista de esos
+  municipios armada con `LISTAGG` (y cuántas reservas en cada uno). Son los
+  viajeros de "ruta cafetera". El primero visitó 11 de los 12 municipios.
+- **2b · En cada municipio, el cliente con más reservas**, con
+  `RANK() OVER (PARTITION BY municipio ...)`, la misma técnica de la consulta 3
+  de la Entrega 1.
+
+Solo cuentan reservas `CONFIRMADA` o `COMPLETADA`, el mismo criterio de las
+consultas de análisis de la Entrega 1.
+
+---
+
+## FASE 5c — El código en pantalla
+
+La docente pidió que en la sustentación se vea, para cada ítem, el código de
+implementación y lo que observa el cliente. Cada pantalla de la interfaz de la
+Entrega 3 (y el resultado del pago) tiene un panel **Ver el código**:
+
+| Pantalla | Código que muestra | De dónde sale |
+|---|---|---|
+| Transacciones | `sp_reservar_y_pagar`, `sp_registrar_pago` | `USER_SOURCE` (compilado en Oracle) |
+| Resultado del pago | el procedimiento que se acaba de ejecutar | `USER_SOURCE` |
+| Concurrencia | `sp_crear_reserva_segura` y la validación de `sp_crear_reserva` | `USER_SOURCE` y `sql/10_pkg_turismo.sql` |
+| Índices | el `CREATE INDEX`, la consulta medida y `pkg_medicion.medir` | `sql/17_indices.sql` y `USER_SOURCE` |
+| Seguridad | la vista de recepción, los roles y el perfil | `sql/18_seguridad.sql` |
+| Consultas de la sustentación | las tres consultas, y es el texto que se ejecuta | `sql/20_consultas_sustentacion.sql` |
 
 ---
 

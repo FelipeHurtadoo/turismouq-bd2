@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_codigo.html" import panel_codigo %}
+{% block title %}Consultas de la sustentación · TurismoUQ{% endblock %}
+{% block content %}
+<div class="encabezado">
+   <span class="etiqueta-entrega">Sustentación</span>
+   <h1 class="h3 mb-1">Consultas pedidas en la sustentación</h1>
+   <p>
+      Las dos preguntas nuevas de la docente, resueltas en
+      <code>sql/20_consultas_sustentacion.sql</code>. Esta pantalla ejecuta el
+      texto exacto de ese script: el código del panel es lo que corre.
+   </p>
+</div>
+
+{% for c in consultas %}
+<section class="mb-5">
+   <h2 class="h4">{{ c.titulo }}</h2>
+   <p class="explicacion">{{ c.explicacion }}</p>
+
+   {{ panel_codigo({'titulo': c.titulo, 'origen': c.origen, 'texto': c.sql}) }}
+
+   {% if c.error %}
+      <div class="alert alert-danger">La consulta falló: <code>{{ c.error }}</code></div>
+   {% else %}
+      <div class="tabla-scroll">
+         <table class="table table-sm table-striped align-middle mb-0">
+            <thead><tr>{% for col in c.columnas %}<th>{{ col|replace('_', ' ')|lower|capitalize }}</th>{% endfor %}</tr></thead>
+            <tbody>
+            {% for fila in c.filas %}
+               <tr class="{{ 'table-success fw-semibold' if c.columnas[0] == 'PUESTO' and fila[0] == 1 else '' }}">
+                  {% for v in fila %}
+                     <td>{% if v is number and v > 100000 %}{{ v|pesos }}{% else %}{{ v|celda }}{% endif %}</td>
+                  {% endfor %}
+               </tr>
+            {% endfor %}
+            </tbody>
+         </table>
+      </div>
+      <p class="small text-muted mt-1">{{ c.filas|length }} filas.</p>
+   {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

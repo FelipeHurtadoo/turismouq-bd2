@@ -20,6 +20,7 @@ from datetime import timedelta
 import oracledb
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
+import codigo
 import db
 
 bp = Blueprint("e3", __name__, url_prefix="/entrega3")
@@ -194,6 +195,8 @@ def transacciones():
         resultado=resultado,
         anatomia=anatomia,
         demos=demos,
+        codigos=[codigo.procedimiento("PKG_TRANSACCIONES", "sp_reservar_y_pagar"),
+                 codigo.procedimiento("PKG_TRANSACCIONES", "sp_registrar_pago")],
     )
 
 
@@ -323,7 +326,10 @@ def concurrencia():
         if modo in MODOS_CONCURRENCIA:
             resultado = _experimento(modo)
     return render_template("e3_concurrencia.html", modos=MODOS_CONCURRENCIA,
-                           resultado=resultado, retencion=RETENCION_A)
+                           resultado=resultado, retencion=RETENCION_A,
+                           codigos=[codigo.procedimiento("PKG_TRANSACCIONES", "sp_crear_reserva_segura"),
+                                    codigo.fragmento("10_pkg_turismo.sql", "-- Misma condición de solapamiento",
+                                                     "END IF;", "pkg_turismo.sp_crear_reserva · validación de disponibilidad")])
 
 
 def _experimento(modo):
@@ -446,6 +452,8 @@ CONSULTAS_INDICES = {
                 "AND r.fecha_checkin >= DATE '2025-12-01' AND r.fecha_checkin < DATE '2026-01-01' "
                 "ORDER BY r.fecha_checkin"),
         "antes": "/*+ NO_INDEX(r ix_reserva_aloj_checkin) */",
+        "ddl": "CREATE INDEX ix_reserva_aloj_checkin ON reserva (id_alojamiento, fecha_checkin) "
+               "TABLESPACE ts_turismo_idx;",
         "explicacion": "Igualdad (alojamiento) primero y rango (fecha) después: las entradas útiles "
                        "quedan contiguas en el índice y además salen ya ordenadas por fecha.",
     },
@@ -456,6 +464,8 @@ CONSULTAS_INDICES = {
         "sql": ("SELECT {hint} c.id_cliente, c.numero_documento, c.nombres, c.apellidos, c.email "
                 "FROM cliente c WHERE UPPER(c.email) = UPPER('Cliente1500@Correo-Demo.Co')"),
         "antes": "/*+ NO_INDEX(c ix_cliente_email_upper) */",
+        "ddl": "CREATE INDEX ix_cliente_email_upper ON cliente (UPPER(email)) "
+               "TABLESPACE ts_turismo_idx;",
         "explicacion": "CLIENTE ya tenía índice UNIQUE sobre email, pero UPPER(email) lo inutiliza. "
                        "El índice sobre la misma expresión convierte el filtro en acceso directo.",
     },
@@ -467,6 +477,8 @@ CONSULTAS_INDICES = {
                 "FROM reserva r JOIN alojamiento a ON a.id_alojamiento = r.id_alojamiento "
                 "WHERE r.id_cliente = 1500 ORDER BY r.fecha_checkin DESC"),
         "antes": "/*+ NO_INDEX(r ix_reserva_cliente) */",
+        "ddl": "CREATE INDEX ix_reserva_cliente ON reserva (id_cliente) "
+               "TABLESPACE ts_turismo_idx;",
         "explicacion": "~8 filas de 25.000: la más selectiva. Además evita que borrar un cliente "
                        "bloquee la tabla RESERVA entera.",
     },
@@ -538,7 +550,8 @@ def indices():
         finally:
             conn.close()
     return render_template("e3_indices.html", consultas=CONSULTAS_INDICES,
-                           resultado=resultado, libre=libre, sql_libre=sql_libre)
+                           resultado=resultado, libre=libre, sql_libre=sql_libre,
+                           codigo_medicion=codigo.procedimiento("PKG_MEDICION", "medir"))
 
 
 def _medir_consulta(cur, clave):
@@ -690,9 +703,17 @@ def seguridad():
             error_conexion = _mensaje_ora(exc)
 
     matriz_cols, matriz = db.fetch_all(SQL_MATRIZ)
+    codigos = [
+        codigo.fragmento("18_seguridad.sql", "CREATE OR REPLACE VIEW v_recepcion_reservas", "us.activo = 'S');",
+                         "Vista de recepción filtrada por el usuario conectado"),
+        codigo.fragmento("18_seguridad.sql", "CREATE ROLE rol_recepcion;", "GRANT SELECT ON usuario_sistema  TO rol_auditor;",
+                         "Roles y privilegios"),
+        codigo.fragmento("18_seguridad.sql", "CREATE PROFILE perfil_turismo_operativo", "PASSWORD_GRACE_TIME", "Perfil con límites de sesión"),
+    ]
     return render_template("e3_seguridad.html", usuarios=USUARIOS_DEMO, usuario=usuario,
                            pruebas=pruebas, vista_previa=vista_previa, limite=limite,
-                           error_conexion=error_conexion, matriz_cols=matriz_cols, matriz=matriz)
+                           error_conexion=error_conexion, matriz_cols=matriz_cols, matriz=matriz,
+                           codigos=codigos)
 
 
 def _probar_usuario(usuario):
@@ -739,3 +760,20 @@ def _probar_limite_sesiones():
         for c in conexiones:
             c.close()
     return intentos
+
+
+# =====================================================================
+# 5. CONSULTAS DE LA SUSTENTACIÓN (sql/20_consultas_sustentacion.sql)
+# =====================================================================
+# Se ejecuta EXACTAMENTE el texto del script: lo que se ve en el panel de
+# código es lo que corre.
+@bp.route("/consultas")
+def consultas_sustentacion():
+    consultas = codigo.consultas_del_script("20_consultas_sustentacion.sql")
+    for c in consultas:
+        try:
+            c["columnas"], c["filas"] = db.fetch_all(c["sql"])
+            c["error"] = None
+        except oracledb.DatabaseError as exc:
+            c["columnas"], c["filas"], c["error"] = [], [], _mensaje_ora(exc)
+    return render_template("e3_consultas.html", consultas=consultas)
